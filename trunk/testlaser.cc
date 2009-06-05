@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
 		Position2dProxy pp(&robot, gIndex);
 		LaserProxy laser(&robot, gIndex);
 
-		laser.Configure(-1.5, 1.5, 100 * ANGLE_SCANRES_DEGREES,
+		laser.Configure(MIN_ANGLE, MAX_ANGLE, 100 * ANGLE_SCANRES_DEGREES,
 				RANGE_RES_MM, INTENSITY, FREQUENCY);
 		laser.RequestConfigure();
 		int bins = laser.GetCount();
@@ -51,9 +51,10 @@ int main(int argc, char *argv[]) {
 					maxindex = i;
 				}
 			}
-			double minangle = -(minindex - bins/2) / (double)bins * MIN_ANGLE;
-			double maxangle =  -(maxindex - bins/2) / (double)bins * MAX_ANGLE;
+			double minangle = -(minindex - bins/2) / (double)bins * MIN_ANGLE * 2.0;
+			double maxangle =  -(maxindex - bins/2) / (double)bins * MAX_ANGLE * 2.0;
 			double angle = -minangle;
+			//If the robot is close to an obstacle, try to turn away from that obstacle
 			if (minvalue < critical_min_dist) {
 				angle = ((angle < 0)?-1:1) * PI/2 - angle;
 			}
@@ -62,7 +63,7 @@ int main(int argc, char *argv[]) {
 				//angle with the way the robot is facing
 				//Check to see if the front path is reasonably clear
 				if (laser.GetRange(bins / 2) > 1.0)
-					angle = 0;//Go straight ahead
+					angle = 0;//Go straight ahead if it's clear
 			}
 			printf("minvalue = %f, bins = %i, minindex = %i, angle = %f \n", minvalue, bins, minindex, angle);
 			pp.SetSpeed(speed * minvalue / maxrange, angle);
