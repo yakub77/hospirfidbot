@@ -1,6 +1,6 @@
 //g++ -o testlaser $(pkg-config --cflags --libs playerc++) testlaser.cc
 
-#include </usr/local/include/player-2.2/libplayerc++/playerc++.h>
+#include </usr/local/include/player-2.1/libplayerc++/playerc++.h>
 #include <iostream>
 
 #include "args.h"
