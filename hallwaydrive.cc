@@ -1,5 +1,3 @@
-//g++ -o testlaser $(pkg-config --cflags --libs playerc++) testlaser.cc
-
 #include <libplayerc++/playerc++.h>
 #include <iostream>
 #include <stdlib.h>
@@ -10,12 +8,9 @@
 #include <X11/Xos.h>
 
 #include "args.h"
+#include "speak.h"
 
-#define RAYS 32
 #define PI 3.141
-#define ANGLE_SCANRES_DEGREES 1
-#define RANGE_RES_MM 10
-#define FREQUENCY 10.0
 
 using namespace PlayerCc;
 
