@@ -35,7 +35,7 @@ window
 # load an environment bitmap
 map
 ( 
-  bitmap "bitmaps/cave.png"
+  bitmap "bitmaps/hallway2.png"
   size [16 16]
   name "cave"
 )

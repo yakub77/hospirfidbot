@@ -7,8 +7,6 @@
 
 #define RAYS 32
 #define PI 3.141
-#define MIN_ANGLE -PI/2
-#define MAX_ANGLE PI/2
 #define ANGLE_SCANRES_DEGREES 1
 #define RANGE_RES_MM 10
 #define FREQUENCY 10.0
@@ -16,7 +14,7 @@
 int main(int argc, char *argv[]) {
 	parse_args(argc, argv);
 	bool INTENSITY = false;
-	double speed = 1.5;
+	double speed = 0.5;
 	double critical_min_dist = 0.5;
 
 	try
@@ -27,13 +25,16 @@ int main(int argc, char *argv[]) {
 		Position2dProxy pp(&robot, gIndex);
 		LaserProxy laser(&robot, gIndex);
 
-		laser.Configure(MIN_ANGLE, MAX_ANGLE, 100 * ANGLE_SCANRES_DEGREES,
-				RANGE_RES_MM, INTENSITY, FREQUENCY);
-		laser.RequestConfigure();
-		int bins = laser.GetCount();
+		//laser.Configure(MIN_ANGLE, MAX_ANGLE, 100 * ANGLE_SCANRES_DEGREES,
+		//		RANGE_RES_MM, INTENSITY, FREQUENCY);
+		//laser.RequestConfigure();
+
+		//printf("MIN_ANGLE = %f, MAX_ANGLE = %F, maxrange = %f\n", MIN_ANGLE, MAX_ANGLE, maxrange);
 		while (true) {
 			robot.Read();
-			bins = laser.GetCount();
+			int bins = laser.GetCount();
+			double MIN_ANGLE = laser.GetMinAngle();
+			double MAX_ANGLE = laser.GetMaxAngle();
 			double maxrange = laser.GetMaxRange();
 			if (bins <= 0)
 				continue;
@@ -54,19 +55,25 @@ int main(int argc, char *argv[]) {
 			double minangle = -(minindex - bins/2) / (double)bins * MIN_ANGLE * 2.0;
 			double maxangle =  -(maxindex - bins/2) / (double)bins * MAX_ANGLE * 2.0;
 			double angle = -minangle;
-			//If the robot is close to an obstacle, try to turn away from that obstacle
-			if (minvalue < critical_min_dist) {
-				angle = ((angle < 0)?-1:1) * PI/2 - angle;
+			printf("%f \n", angle);
+			if (abs(minangle) <= PI/2) {
+				//If the robot is close to an obstacle, try to turn away from that obstacle
+				if (minvalue < critical_min_dist) {
+					angle = ((angle < 0)?-1:1) * PI/2 - angle;
+				}
+				if (abs(angle) > PI/2 || minvalue > critical_min_dist) {
+					//If the closest thing makes at least a right
+					//angle with the way the robot is facing
+					//Check to see if the front path is reasonably clear
+					if (laser.GetRange(bins / 2) > 1.0)
+						angle = 0;//Go straight ahead if it's clear
+				}
+				printf("minvalue = %f, bins = %i, minindex = %i, angle = %f \n", minvalue, bins, minindex, angle);
+				pp.SetSpeed(speed * minvalue, angle);
 			}
-			if (abs(angle) > PI/2 || minvalue > critical_min_dist) {
-				//If the closest thing makes at least a right
-				//angle with the way the robot is facing
-				//Check to see if the front path is reasonably clear
-				if (laser.GetRange(bins / 2) > 1.0)
-					angle = 0;//Go straight ahead if it's clear
+			else {
+				pp.SetSpeed(speed * minvalue, 0);
 			}
-			printf("minvalue = %f, bins = %i, minindex = %i, angle = %f \n", minvalue, bins, minindex, angle);
-			pp.SetSpeed(speed * minvalue / maxrange, angle);
 		}
 
 	}
