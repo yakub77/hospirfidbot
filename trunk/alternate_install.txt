@@ -1,0 +1,92 @@
+Software Environment:
+Fresh install of Ubuntu 9.04 32-bit
+
+Our software repository:
+http://code.google.com/p/hospirfidbot/
+
+1) Prepare a USB key with the Ubuntu installer on it by booting first from the Ubuntu install cd, and then running the "usb-creator" program
+https://help.ubuntu.com/community/Installation/FromUSBStick
+
+2) When the netbook starts up, press F2 to access the BIOS.  Under the "Boot" menu, disable "Boot Booster."  This was a necessary step before replacing ram and putting on a new operating system
+
+3) Save changes and shut down computer.  Insert USB key with Ubuntu install.  Power computer on and hold down "Esc" to boot from the USB key, then follow the install instructions
+
+4) In Synaptic Package Manager under Settings->Repositories
+Check off everything under Third Party Software.  Then click "Reload" in the main GUI
+
+Install the following packages in synaptic package manager:
+*ssh (for administering computer remotely...will install both client and server and start server automatically)
+*x11vnc (for launching x applications remotely...tunnel through ssh)
+http://www.karlrunge.com/x11vnc/#tunneling
+
+*subversion
+*kdesvn
+*cmake
+*autoconf
+*libltdl7-dev
+*libfltk1.1
+*libfltk1.1-dev
+*libiceutil33
+*libavc1394-dev
+*libdc1394-22-dev
+*python-all
+*python-all-dev
+*python-opencv
+*g++
+*libgtk2.0-dev
+*libcv-dev
+*libstatgrab6
+*libstatgrab-dev
+*libpqxx-dev
+*libgnomecanvasmm-2.6-dev
+*libgsl0-dev
+*libplayerxdr2-dev
+*libplayerdrivers2-dev
+*libplayercore2-dev
+*libplayererror2-dev
+*libplayerc2-dev
+*libplayerc++2-dev
+*libgcl-dev
+*libglut3-dev
+
+5) cd into the gearbox directory and type "cmake ."
+Once the configuration is complete, type "make"
+Then type "sudo make install"
+
+6) Open up the file "~/.bashrc" for editing
+Add the following lines at the top:
+
+export PATH=/usr/local/bin:$PATH
+export CPATH=/usr/local/include:$CPATH
+export LIBRARY_PATH=/usr/local/lib:/usr/local/lib/gearbox/:$LIBRARY_PATH
+export LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib/gearbox/:$LD_LIBRARY_PATH
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+
+Do the same thing for /etc/bash.bashrc
+
+Then relaunch the terminal
+
+7) Extract the player.tar.gz file and cd into it
+Type "ccmake ."
+
+Disable the following drivers: cmvision, shapetracker, camera1394, sphere, cmucam2, mricp
+(This is done because they all had errors for some reason, perhaps since I checked out an intermediate revision; I don't think there's an immediate need for any of them for this project, so I just disabled them so that the build could complete)
+
+Type "make"
+
+Then type "sudo make install"
+
+8) Type "cmake ."
+Type "make"
+Type "sudo make install"
+
+----------------------------------
+
+9) Next, check out the code from our google code repository:
+http://code.google.com/p/hospirfidbot
+
+10) Next, create a file called "kdesvn.sh" in the directory ~/.gnome2/nautilus-scripts/kdesvn.sh
+
+that contains the code
+#!/bin/sh/
+kdesvn $1
