@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <ctime>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xos.h>
@@ -13,21 +14,6 @@
 #define PI 3.141
 
 using namespace PlayerCc;
-
-//X11 Variables
-/*Display* disp;
-int screen;
-Window win;
-GC gc;*/
-
-//Used to draw occupancy grid
-/*void X11Init() {
-	disp = XOpenDisplay(NULL);
-	win = XCreateSimpleWindow(disp, RootWindow(disp, 0), 1, 1, 500, 500, 0, 
-		BlackPixel(disp, 0), BlackPixel(disp, 0));
-	XMapWindow(disp, win);
-	XFlush(disp);
-}*/
 
 class Point {
 public:
@@ -103,7 +89,7 @@ public:
 	void output();
 	Point GetCoord(int x, int y);
 	Point GetCentroid();
-	Point GetRightBiasCentroid(double centerX, double weight);
+	Point GetRightBiasCentroid(double centerX);
 };
 
 OccupancyGrid::OccupancyGrid(double inc, double width, double height) {
@@ -183,21 +169,16 @@ Point OccupancyGrid::GetCentroid() {
 	return toReturn;
 }
 
-Point OccupancyGrid::GetRightBiasCentroid(double centerX, double weight) {
+Point OccupancyGrid::GetRightBiasCentroid(double centerX) {
 	Point toReturn;
 	double total = 0.0;
 	for (int x = 0; x < oarrwidth; x++) {
 		for (int y = 0; y < oarrheight; y++) {
 			if (!grid[x][y]) {  //If the cell is empty, weight it in the centroid
-				Point coord = GetCoord(x, y);				
-				if (coord.x > centerX) {
-					//Weight things on the right by a factor "weight"
-					coord.x *= weight; coord.y *= weight;					
-					toReturn += coord; total += weight;
-				}
-				else {
-					toReturn += coord;total++;
-				}			
+				Point coord = GetCoord(x, y);								
+				if (coord.x >= centerX) {				
+					toReturn += coord; total ++;
+				}		
 			}
 		}
 	}
@@ -214,21 +195,19 @@ int main(int argc, char *argv[]) {
 	double cruising_speed = 0.5;
 	double critical_min_dist = 0.5;
 	OccupancyGrid grid(0.1, 4.0, 2.0);
-	bool rightbias = true;
-	double weight = 2.0;
+	bool rightbias = false;
 
-	if (argc > 1)
-		weight = atof(argv[1]);
+	//speak("This is test speech");	
 
 	try {
 	PlayerClient robot(gHostname, gPort);
 	Position2dProxy pp(&robot, gIndex);
 	LaserProxy laser(&robot, gIndex);
-	//SpeechProxy sp(&robot, gIndex);
 
 	while (true) {
 		robot.Read();
 		int bins = laser.GetCount();
+		//printf("%i\n", bins);
 		double MIN_ANGLE = laser.GetMinAngle();
 		double MAX_ANGLE = laser.GetMaxAngle();
 		double maxrange = laser.GetMaxRange();
@@ -247,12 +226,14 @@ int main(int argc, char *argv[]) {
 		//grid.output();
 		Point centroid = grid.GetCentroid();
 		if (rightbias) 
-			centroid = grid.GetRightBiasCentroid(centroid.x, weight);
+			centroid = grid.GetRightBiasCentroid(centroid.x);
 		double angle = centroid.getAngle();
 
-		if (minvalue < critical_min_dist && fabs(minangle)) { 
+		if (minvalue < critical_min_dist && fabs(minangle)) {			
 			//Something's in the way
 			pp.SetSpeed(0.0, 0.0);
+			speak("Please move out of the way");		
+			sleep(0.5);
 		}
 		else {		
 			//Slow down to make turns

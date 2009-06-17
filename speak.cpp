@@ -1,15 +1,17 @@
 #include "speak.h"
-#include <festival.h>
-
-void festival_initialize() {
-    int heap_size = 210000;  // default scheme heap size
-    int load_init_files = 1; // we want the festival init files loaded
-    festival_initialize(load_init_files,heap_size);
-	//festival_eval_command("(voice_rab_diphone)");
-    //festival_eval_command("(voice_ked_diphone)");
-	//To get the default voice back
-}
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 void speak(char* utterance) {
-    festival_say_text(utterance);
+	char* s1 = "echo \"";
+	char* s3 = "\" | festival --tts";
+	char* command = (char*)calloc(strlen(s1) + strlen(utterance) + strlen(s3) + 1, sizeof(char));
+	strcpy(command, s1);
+	strcat(command, utterance);
+	strcat(command, s3);
+	system(command);
+	printf("%s\n", command);
+	free(command);
 }
