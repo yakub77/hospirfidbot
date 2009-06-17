@@ -49,6 +49,8 @@ http://www.karlrunge.com/x11vnc/#tunneling
 *libgcl-dev
 *libglut3-dev
 *libstatgrab6
+*festival
+*festival-dev (for speech synthesis)
 
 5) Go to playerstage.sourceforge.net and download the most recent major releases of player and stage.  As of writing this tutorial, they are player 2.1.2 and stage 2.1.1, released on January 15, 2009 and January 16, 2009, respectively
 
