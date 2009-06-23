@@ -35,7 +35,7 @@ struct PlayerHeader {
 
 void PlayerHeader::readHeader(FILE* fp) {
 	char buf[BUFSIZE];
-	fscanf(fp, "%s", buf);
+	fscanf(fp, "%128s", buf);
 	if (buf[0] == '#') {
 		// A comment is encountered, assume this is not a valid header
 		// Skip everything in a line that's started with a comment
@@ -45,7 +45,7 @@ void PlayerHeader::readHeader(FILE* fp) {
 	}
 	valid = true;
 	time = atof(buf);
-	fscanf(fp, "%u%u%s%u%u%u", &host, &robot, interfaceName, &index, &type, &subtype);
+	fscanf(fp, "%u%u%128s%u%u%u", &host, &robot, interfaceName, &index, &type, &subtype);
 }
 
 void PlayerHeader::Print() {
