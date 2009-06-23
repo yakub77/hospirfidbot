@@ -1,4 +1,16 @@
+struct RFIDHeader {
+        bool valid;
+        unsigned int lines;
+        double * time;
+        
+        void readHeader(FILE* fp);
+};
 
+struct RFIDreads {
+        char** tagName;
+        int * sigStrength;
+        int numRFID;
+};
 
 void skipLine(FILE*);
 void RFIDHeader::readHeader(FILE* fp);
