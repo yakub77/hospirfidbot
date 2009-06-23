@@ -69,7 +69,6 @@ void outputLaser(FILE* fin, FILE* fout) {
 	//-1.5708 +1.5708 +0.01745329 +5.6000 0181
 	double startangle, endangle, increment, minrange, maxrange;
 	unsigned int bins;
-	char buf[BUFSIZE];
 	fscanf(fin, "%lf%lf%lf%lf%lf%u", &startangle, &endangle, &increment, &minrange, &maxrange, &bins);
 	//printf("%lf %lf %lf %lf %lf %u\n", startangle, endangle, increment, minrange, maxrange, bins);
 	if (bins != 181) {
@@ -80,9 +79,10 @@ void outputLaser(FILE* fin, FILE* fout) {
 	}
 	fprintf(fout, "Laser 181 ");
 	int counter = 0;
+	float scanrange;
 	while (counter < 181) {
-		fscanf(fin, "%s", buf);
-		fprintf(fout, "%s ", buf);
+		fscanf(fin, "%f", &scanrange);
+		fprintf(fout, "%f ", scanrange);
 		counter++;
 	}
 	fprintf(fout, "\n");
@@ -97,10 +97,11 @@ starting point. These measures are in meters. <theta> is robot's
 current facing angle, in radians.*/
 void outputOdometry(FILE* fin, FILE* fout) {
 //1245349407.171 16777343 6665 position2d 00 001 001 +00.439 -00.027 -0.101 +00.000 +00.000 +00.000 0
-	double x, y, theta;
-	fprintf(fout, "Odometry \n");
-	fscanf(fin, "%lf%lf%lf", &x, &y, &theta);
-	fprintf(fout, "%lf %lf %lf\n", x, y, theta);
+	float x, y, theta;
+	fprintf(fout, "Odometry ");
+	fscanf(fin, "%f%f%f", &x, &y, &theta);
+	fprintf(fout, "%f %f %f \n", x, y, theta);
+	printf("%f %f %f \n", x, y, theta);
 	skipLine(fin);
 	fflush(fout);
 }
@@ -136,6 +137,7 @@ int main(int argc, char** argv) {
 			if (strcmp(header.interfaceName, "laser") == 0) {
 				if (state == WAITING_LASER) {
 					outputLaser(fin, fout);
+					//skipLine(fin);
 					state = WAITING_ODOMETRY;				
 				}
 				else
