@@ -27,7 +27,6 @@ struct RFIDHeader {
         double * time;
         
         void readHeader(FILE* fp);
-        void Print();
 };
 
 struct RFIDreads {
