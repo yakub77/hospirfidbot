@@ -69,7 +69,8 @@ Do the same thing for /etc/bash.bashrc
 Then relaunch the terminal
 
 7) Extract the player-2.1.2.tar.gz file and cd into it
-Type "./configure"
+Type "./configure --enable-rtkgui"
+(the rtkgui is needed for the AMCL debugging GUI)
 
 Then type "sudo make install"
 
