@@ -1,8 +1,3 @@
-//g++ -o rfid rfid.cpp
-//input should be ./rfid [name of log file] [time to find]
-
-
-
 //This file converts the output log file of the RFID into a format which
 //SLAM will be able to interpret
 
