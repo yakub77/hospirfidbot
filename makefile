@@ -1,9 +1,9 @@
-CPP = gcc
+CPP = g++
 
 PKGCONFIG = `pkg-config --cflags --libs playerc++`
 #LIBS = -I /usr/include/estools -I /usr/include/festival/ -lestools -lestbase -leststring -lesd -lncurses -ltermcap -lstdc++
 
-all: hallwaydrive
+all: hallwaydrive logdpslam log2jpeg rfid
 
 clobber: clean
 	rm -f *~ \#*\# core
@@ -19,3 +19,16 @@ hallwaydrive.o: hallwaydrive.cc
 
 speak.o: speak.h speak.cpp
 	$(CPP) $(LIBS) -c speak.cpp
+	
+#Other utility files
+player2dpslam: player2dpslam.cpp
+	$(CPP) -o player2dpslam player2dpslam.cpp
+	
+logdpslam: logdpslam.cc
+	$(CPP) -o logdpslam logdpslam.cc
+	
+log2jpeg: logs/log2jpeg.cc
+	$(CPP) -o logs/log2jpeg logs/log2jpeg.cc
+
+rfid: rfid.cpp rfid.h
+	$(CPP) -c rfid.cpp

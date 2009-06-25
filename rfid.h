@@ -1,23 +1,21 @@
-struct RFIDHeader {
-        bool valid;
-        unsigned int lines;
-        double * time;
-        
-        void readHeader(FILE* fp);
-};
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#ifndef RFID_H
+#define RFID_H
+
 
 struct RFIDreads {
         char** tagName;
         int * sigStrength;
         int numRFID;
+        void freeRead();
 };
 
-void skipLine(FILE*);
-void RFIDHeader::readHeader(FILE* fp);
-RFIDreads readTagsAtLine(FILE* fp, int line);
-unsigned int countLines(FILE *fp);
-int returnLine(double time, RFIDHeader header);
-int main(int argc, char** argv);
+RFIDreads getRFIDreads(char* filename, float time);
+
+#endif
 
 
 

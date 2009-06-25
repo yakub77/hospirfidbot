@@ -7,19 +7,10 @@
 //SLAM will be able to interpret
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+
+#include "rfid.h"
 
 #define BUFSIZE 256
-
-void skipLine(FILE* fp) {
-        char c;
-        do {
-                c = fgetc(fp);
-        }
-        while ((c >= 0) && (c != '\n'));
-}
 
 struct RFIDHeader {
         bool valid;
@@ -29,11 +20,13 @@ struct RFIDHeader {
         void readHeader(FILE* fp);
 };
 
-struct RFIDreads {
-        char** tagName;
-        int * sigStrength;
-        int numRFID;
-};
+void skipLine(FILE* fp) {
+        char c;
+        do {
+                c = fgetc(fp);
+        }
+        while ((c >= 0) && (c != '\n'));
+}
 
 void RFIDHeader::readHeader(FILE* fp) {
         char buf[BUFSIZE];
@@ -54,6 +47,14 @@ void RFIDHeader::readHeader(FILE* fp) {
                 valid = true;
         }
         //fscanf(fp, "%s%u", rfidName, &sigStrength)  pretty sure I don't need this here...
+}
+
+void RFIDreads::freeRead() {
+        for (int i=0; i<numRFID; i++) {
+                free(tagName[i]);
+        }
+        free(tagName);
+        free(sigStrength);
 }
 
 RFIDreads readTagsAtLine(FILE* fp, int line) {
@@ -114,39 +115,30 @@ int returnLine(double time, RFIDHeader header) {
         return position;
 }       
         
-int main(int argc, char** argv) {
+RFIDreads getRFIDreads(char* filename, float time) {
         //input should be ./rfid [name of log file] [time to find]
-        printf("Main\n");
         char* filein;
         char buf[BUFSIZE];
         FILE* fin;
         int sigStrength;
         struct RFIDHeader header;
-        printf("Initialized\n");
+        struct RFIDreads data;
         
-        fin = fopen(argv[1], "r");
-        //TODO: Don't forget to clean up time array in the header (double* time)
+        fin = fopen(filename, "r");
         if (fin == NULL) {
-                fprintf(stderr, "ERROR opening input file %s\n", argv[1]);
-                return 1;
+                fprintf(stderr, "ERROR opening input file %s\n", filename);
+                return data;
         }
         
         header.lines = countLines(fin);
         header.readHeader(fin);
-        for (int i=0; i<header.lines; i++)
+        /*for (int i=0; i<header.lines; i++)
                 printf("%lf\n", header.time[i]);
                 
-        printf("time to find: %lf\n", atof(argv[2]));
-        struct RFIDreads data = readTagsAtLine(fin, returnLine(atof(argv[2]), header));
-        
-        for (int i=0; i<data.numRFID; i++) {
-                printf("%s %d\n", data.tagName[i], data.sigStrength[i]);
-                free(data.tagName[i]);
-        }
-        
-        free(data.tagName);
-        free(data.sigStrength);
+        printf("time to find: %lf\n", atof(argv[2]));*/
+        data = readTagsAtLine(fin, returnLine(time, header));
         free(header.time);
+        return data;
 }
 
         

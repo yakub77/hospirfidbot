@@ -19,9 +19,9 @@ int main(int argc, char** argv)
     while (true) {
       client.Read();
       cp.SaveFrame(names);
-      fprintf(file, "%i %ld\n", num, time(NULL));
+      fprintf(file, "%i %f\n", num, (double)clock());
       fflush(file);
-      printf("%i %ld\n", num, time(NULL));
+      printf("%i %f\n", num, (double)clock() / CLOCKS_PER_SEC);
       sleep(1);
       num++;
     }
