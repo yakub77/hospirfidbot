@@ -392,7 +392,7 @@ class M5e:
                 logname = str(raw_input("Please enter the name of the target log file: "))
                 break
             except IOError:
-                print "The logfile name must be valid."
+                print "The log file name must be valid."
         
         path = '/home/tbg4/Desktop/hospirfidbot/logs/' + logname
         f = file(path, 'w')     #this line and the next generate the log file
@@ -419,13 +419,21 @@ class M5e:
                 break
             except IOError:
                 print "The logfile name must be valid."
+        while True:
+            try:
+                timeout = str(raw_input("Timeout (default is 50 in ms): "))
+                break
+            except IOError:
+                print "The timer must be valid."
         
         path = '/home/tbg4/Desktop/hospirfidbot/logs/' + logname
+        #remove(path)         #delete current log file
         f = file(path, 'w')     #this line and the next generate the log file
         f.close()
+        tin = int(timeout)
         while 1:
             t = str(time())
-            data = self.QueryEnvironment()
+            data = self.QueryEnvironment(tin)
             print t
             print data
             with open(path, 'r+') as f:    # this method handles exceptions (supposedly)
