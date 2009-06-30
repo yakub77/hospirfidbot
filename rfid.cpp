@@ -1,140 +1,95 @@
-//This file converts the output log file of the RFID into a format which
-//SLAM will be able to interpret
-
-
-
 #include "rfid.h"
 
-#define BUFSIZE 256
-
-struct RFIDHeader {
-        bool valid;
-        unsigned int lines;
-        double * time;
-        
-        void readHeader(FILE* fp);
-};
-
-void skipLine(FILE* fp) {
-        char c;
-        do {
-                c = fgetc(fp);
-        }
-        while ((c >= 0) && (c != '\n'));
+//<time> <#tags> <string hex id> <strength 1> ..... 
+RFIDLog::RFIDLog(const char* filename) {
+	FILE* fp = fopen(filename, "r");
+	double time;
+	int tagsseen;
+	if (fp == NULL) {
+		fprintf(stderr, "ERROR: Unable to open file %s\n", filename);
+		return;
+	}
+	while (!feof(fp)) {
+		vector<tread> readings;
+		fscanf(fp, "%lf%i", &time, &tagsseen);
+		for (int i = 0; i < tagsseen; i++) {
+			char stringid[128];
+			int strength;
+			fscanf(fp, "%128s%i", stringid, &strength);
+			//Check to see if this tag has already been spotted
+			int tagid;
+			if (tags.find(stringid) != tags.end()) {
+				//printf("%s : %i \n", stringid, tagid);
+				//The tag has already been encountered, so look up the integer
+				//value it was previously assigned
+				tagid = tags[stringid];
+			}
+			else {
+				//It has not been found yet, so create a new entry for it
+				tagid = numtags;
+				tags[stringid] = tagid;
+				numtags++;
+			}
+			struct TagReading reading;
+			reading.id = tagid;
+			reading.strength = strength;
+			readings.push_back(reading);
+		}
+		timeReadings[time] = readings;
+	}
 }
 
-void RFIDHeader::readHeader(FILE* fp) {
-        char buf[BUFSIZE];
-        time = new double[lines];
-        
-        for(int i=0; i<lines; i++) {
-                fscanf(fp, "%20s", buf);
-                if (buf[0] == '#') {
-                        // A comment is encountered, assume this is not a valid header
-                        // Skip everything in a line that's started with a comment
-                        valid = false;
-                        return;
-                }
-                else {
-                        time[i] = atof(buf);    //here we build the array of time values
-                }
-                skipLine(fp);
-                valid = true;
-        }
-        //fscanf(fp, "%s%u", rfidName, &sigStrength)  pretty sure I don't need this here...
+vector<tread> RFIDLog::getClosestReadings(double time) {
+	assert(timeReadings.size() >= 1);
+	//First check to see if the exact time is there (extremely unlikely)
+	if (timeReadings.find(time) != timeReadings.end())
+		return timeReadings[time];
+	
+	map<double, vector<tread>, CompareDouble>::iterator pos, before, after, closest;
+	//The exact time is not there, so find the nearest one
+	//Insert a fake entry to exploit the tree structure of the map;
+	//the map is sorted already, so put in an entry and get a pointer to it
+	//Then I can get a pointer to the time right before and the time right after
+	//and figure out which one is closer
+	
+	vector<tread> dummy;
+	vector<tread> toReturn;
+	timeReadings[time] = dummy;
+	pos = timeReadings.find(time);
+	before = pos; before--;
+	after = pos; after++;
+	if (pos == timeReadings.begin()) {
+		//Corner case: The time is less than the first time in the logfile
+		toReturn = after->second;
+	}
+	else if (pos == timeReadings.end()) {
+		//Corner case: The time is greater than the last time in the logfile
+		toReturn = before->second;
+	}
+	else {
+		//Normal case: The time is between two existing times in the logfile
+		//Check to see if it's closer to the time before or the time after
+		double dtb = time - before->first;
+		double dta = after->first - time;
+		if (dtb < dta)
+			toReturn = before->second;
+		else
+			toReturn = after->second;
+	}
+	//printf("%f < %f < %f \n", before->first, time, after->first);
+	
+	//Clean up after adding the dummy value
+	timeReadings.erase(pos);
+	return toReturn;
 }
 
-void RFIDreads::freeRead() {
-        for (int i=0; i<numRFID; i++) {
-                free(tagName[i]);
-        }
-        free(tagName);
-        free(sigStrength);
-}
+RFIDLog::~RFIDLog() {}
 
-RFIDreads readTagsAtLine(FILE* fp, int line) {
-        struct RFIDreads data;
-        double time;
-        fpos_t file_loc;
-        
-        fseek(fp, 0, SEEK_SET);
-        for (int i=0; i<line; i++)
-               skipLine(fp);
-        fgetpos(fp, &file_loc);
-        
-        //We've gotten to the right line and are ready to read it
-        fscanf(fp, "%lf%u", &time, &data.numRFID);
-        printf("Reading at time %lf\n", time);
-        printf("numRFID: %u\n", data.numRFID);
-        
-        data.tagName = new char*[data.numRFID];
-        data.sigStrength = new int[data.numRFID];
-        //TODO: Free these when you're done with them by using free(data.tagName, data.sigStrength)
-        
-        for (int i=0; i<data.numRFID; i++) {
-                data.tagName[i] = new char[24];
-                fscanf(fp, "%24s%d", data.tagName[i], &data.sigStrength[i]);  //should tagName be string?
-        }
-        
-        return data;      // what happens to data after this function finishes?
+int main(int argc, char** argv) {
+	RFIDLog log("logs/hallwayleft");
+	vector<tread> readings = log.getClosestReadings(0);
+	for (int i = 0; i < readings.size(); i++) {
+		printf("%i %i\n", readings[i].id, readings[i].strength);
+	}
+	return 0;
 }
-
-unsigned int countLines(FILE *fp) {
-        fseek(fp, 0, SEEK_SET);
-        unsigned int lines = 0;
-        while (!feof(fp)) {
-                skipLine(fp);
-                lines++;
-        }
-        fseek(fp, 0, SEEK_SET);
-        return lines;
-}
-        
-int returnLine(double time, RFIDHeader header) {
-        printf("time = %lf\n", time);
-        double diff[header.lines];
-        double leastdiff = time;
-        int position = 0;
-        
-        
-        for (int i=0; i<header.lines; i++) {
-                diff[i] = header.time[i] - time;
-                if (diff[i]<0)   
-                        diff[i] = -diff[i];
-                if (diff[i]<leastdiff) {
-                        leastdiff = diff[i]; 
-                        position = i;
-                }
-        }
-        printf("position = %u\n", position);
-        return position;
-}       
-        
-RFIDreads getRFIDreads(char* filename, float time) {
-        //input should be ./rfid [name of log file] [time to find]
-        char* filein;
-        char buf[BUFSIZE];
-        FILE* fin;
-        int sigStrength;
-        struct RFIDHeader header;
-        struct RFIDreads data;
-        
-        fin = fopen(filename, "r");
-        if (fin == NULL) {
-                fprintf(stderr, "ERROR opening input file %s\n", filename);
-                return data;
-        }
-        
-        header.lines = countLines(fin);
-        header.readHeader(fin);
-        /*for (int i=0; i<header.lines; i++)
-                printf("%lf\n", header.time[i]);
-                
-        printf("time to find: %lf\n", atof(argv[2]));*/
-        data = readTagsAtLine(fin, returnLine(time, header));
-        free(header.time);
-        return data;
-}
-
-        
-        

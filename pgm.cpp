@@ -56,7 +56,7 @@ void PGMImage::parseData(BYTE* data, ptype size) {
 	///////////////////////////////////////
 	skipWhiteSpace(&sdata, &index);
 	int imgindex = 0;
-	cout << width << " x " << height << "\n\n\n";
+	//cout << width << " x " << height << "\n\n\n";
 	imgdata = new BYTE[width * height];
 	while (index < size && imgindex < width * height) {
 		imgdata[imgindex] = data[index];
@@ -64,16 +64,16 @@ void PGMImage::parseData(BYTE* data, ptype size) {
 	}
 }
 
-void PGMImage::writeToFile(char* filename) {
+void PGMImage::writeToFile(const char* filename) {
 	ofstream pgmfile;
 	pgmfile.open(filename, ios::binary | ios::out);
-	pgmfile << "P5 " << width << " " << height << " 255 ";
+	pgmfile << "P5 " << width << " " << height << " " << maxvalue <<" ";
 	pgmfile.write((char*)imgdata, width * height);
 }
 
 
 //The constructor for opening a PGM image from a file
-PGMImage::PGMImage(char* filename) {
+PGMImage::PGMImage(const char* filename) {
 	BYTE* filedata;
 	ifstream pgmfile;
 	ptype size;
@@ -96,6 +96,7 @@ PGMImage::PGMImage(char* filename) {
 PGMImage::PGMImage(int w, int h) {
 	width = w;
 	height = h;
+	maxvalue = 255;
 	imgdata = new BYTE[w * h];
 	for (int i = 0; i < w; i++) {
 		for (int j = 0; j < h; j++) {
@@ -122,16 +123,84 @@ void PGMImage::setPixel(int i, int j, BYTE value) {
 	imgdata[j * width + i] = value;
 }
 
+//Quantize into an entirely black and white image
+void PGMImage::Quantize(BYTE cutoff) {
+	for (int i = 0; i < width; i++) {
+		for (int j = 0; j < height; j++) {
+			if (getPixel(i, j) < cutoff) setPixel(i, j, 0);
+			else setPixel(i, j, 255);
+		}
+	}
+}
+
+
+PGMImage PGMImage::getEdges() {
+	PGMImage toReturn(width, height);
+	for (int i = 1; i < width - 1; i++) {
+		for (int j = 1; j < height - 1; j++) {
+			int total = 8 * getPixel(i, j);
+			for (int p = -1; p <= 1; p++) {
+				for (int q = -1; q <= 1; q++) {
+					if (!(p == 0 && q == 0))
+						total -= getPixel(i + p, j + q);
+				}
+			}
+			toReturn.setPixel(i, j, (BYTE)total);
+		}
+	}
+	return toReturn;
+}
+
+//Gaussian blurring
+void PGMImage::Blur(int w) {
+	for (int i = w; i < width - w; i++) {
+		for (int j = w; j < height - w; j++) {
+			double total = 0;
+			double weight = 0;
+			for (int p = -w; p <= w; p++) {
+				for (int q = -w; q <= w; q++) {
+					double rSquared = p*p + q*q;
+					double expon = pow (2.0, -rSquared);
+					weight += expon;
+					total += expon * getPixel(i + p, j + q);
+				}
+			}
+			total /= weight;
+			setPixel(i, j, (BYTE)(total));
+		}
+	}
+}
+
+void PGMImage::autoQuantize() {
+	double avg;
+	int min;
+	int total = 0;
+	//Find minimum pixel value and discount it from average
+	for (int i = 0; i < width; i++) {
+		for (int j = 0; j < height; j++) {
+			int pixel = getPixel(i, j);
+			if (pixel < min) min = pixel;
+		}
+	}
+	for (int i = 0; i < width; i++) {
+		for (int j = 0; j < height; j++) {
+			int pixel = getPixel(i, j);
+			if (pixel > min) {
+				avg += pixel; total++;
+			}
+		}
+	}
+	avg /= (double)total;
+	cout << avg << endl;
+	Quantize((int)avg);
+}
 
 //Test client for this class
-int main(int argc, char** argv) {
-	PGMImage test("coarse.pgm");
-	for (int i = 0; i < test.height; i++) {
-		test.setPixel(3, i, 255);
-		test.setPixel(19, i, 255);
-	}
-	test.writeToFile("out.pgm");
+/*int main(int argc, char** argv) {
+	PGMImage coarse("logs/coarse.pgm");
+	coarse.autoQuantize();
+	coarse.writeToFile("out.pgm");
 	return 0;
-}
+}*/
 
 
