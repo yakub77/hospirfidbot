@@ -3,7 +3,7 @@ CPP = g++
 PKGCONFIG = `pkg-config --cflags --libs playerc++`
 #LIBS = -I /usr/include/estools -I /usr/include/festival/ -lestools -lestbase -leststring -lesd -lncurses -ltermcap -lstdc++
 
-all: hallwaydrive logdpslam log2jpeg rfid
+all: libimage hallwaydrive logdpslam log2jpeg rfid pgm
 
 clobber: clean
 	rm -f *~ \#*\# core
@@ -32,3 +32,6 @@ log2jpeg: logs/log2jpeg.cc
 
 rfid: rfid.cpp rfid.h
 	$(CPP) -c rfid.cpp
+	
+pgm: pgm.cpp pgm.h
+	$(CPP) -c pgm.cpp

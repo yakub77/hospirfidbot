@@ -229,19 +229,20 @@ int main(int argc, char *argv[]) {
 			centroid = grid.GetRightBiasCentroid(centroid.x);
 		double angle = centroid.getAngle();
 
-		if (minvalue < critical_min_dist && fabs(minangle)) {			
+		/*(minvalue < critical_min_dist && fabs(minangle)) {			
 			//Something's in the way
 			pp.SetSpeed(0.0, 0.0);
 			speak("Please move out of the way");		
 			sleep(0.5);
 		}
-		else {		
+		else {	*/	
 			//Slow down to make turns
 			double speed = cruising_speed;
 			speed /= (1.0 + 5.0 * fabs(angle));
 			//printf("angle=%f, speed=%f\n", fabs(angle), speed);		
 			pp.SetSpeed(speed, angle);
-		}
+			//pp.SetSpeed(0.5, 0);
+		//}
 	}
 
 	}
