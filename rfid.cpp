@@ -1,5 +1,7 @@
 #include "rfid.h"
 
+RFIDLog::RFIDLog(){}
+
 //<time> <#tags> <string hex id> <strength 1> ..... 
 RFIDLog::RFIDLog(const char* filename) {
 	FILE* fp = fopen(filename, "r");
@@ -85,11 +87,12 @@ vector<tread> RFIDLog::getClosestReadings(double time) {
 
 RFIDLog::~RFIDLog() {}
 
-int main(int argc, char** argv) {
+//Test client
+/*int main(int argc, char** argv) {
 	RFIDLog log("logs/hallwayleft");
-	vector<tread> readings = log.getClosestReadings(0);
+	vector<tread> readings = log.getClosestReadings(1245886250.6);
 	for (int i = 0; i < readings.size(); i++) {
 		printf("%i %i\n", readings[i].id, readings[i].strength);
 	}
 	return 0;
-}
+}*/

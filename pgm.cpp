@@ -72,6 +72,8 @@ void PGMImage::writeToFile(const char* filename) {
 }
 
 
+PGMImage::PGMImage() {}
+
 //The constructor for opening a PGM image from a file
 PGMImage::PGMImage(const char* filename) {
 	BYTE* filedata;
