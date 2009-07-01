@@ -22,6 +22,7 @@ typedef map<string, int> simap;
 
 class RFIDLog {
 public:
+	RFIDLog();
 	RFIDLog(const char* filename);
 	~RFIDLog();
         unsigned int lines;

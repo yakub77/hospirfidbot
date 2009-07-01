@@ -21,6 +21,7 @@ public:
 	BYTE* imgdata;
 	PGMImage(const char* filename);
 	PGMImage(int w, int h);
+	PGMImage();
 	~PGMImage();
 	void parseData(BYTE* data, ptype size);
 	void writeToFile(const char* filename);
