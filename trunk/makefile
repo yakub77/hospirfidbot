@@ -1,15 +1,18 @@
-CPP = g++
+CPP = g++ -g
 
 PKGCONFIG = `pkg-config --cflags --libs playerc++`
 #LIBS = -I /usr/include/estools -I /usr/include/festival/ -lestools -lestbase -leststring -lesd -lncurses -ltermcap -lstdc++
 
-all: makeheatmaps hallwaydrive log2jpeg player2dpslam
+all: makeheatmaps hallwaydrive log2jpeg player2dpslam SimulateRFID
 
 clobber: clean
 	rm -f *~ \#*\# core
 
 clean:
 	rm -f main *.o
+
+SimulateRFID: SimulateRFID.cpp pgm.o
+	$(CPP) -o SimulateRFID SimulateRFID.cpp pgm.o
 
 makeheatmaps: makeheatmaps.o rfid.o pgm.o heatmap.o
 	$(CPP) $(LIBS) -o makeheatmaps makeheatmaps.o rfid.o pgm.o heatmap.o
