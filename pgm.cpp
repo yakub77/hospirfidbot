@@ -199,9 +199,14 @@ void PGMImage::autoQuantize() {
 
 //Test client for this class
 /*int main(int argc, char** argv) {
-	PGMImage coarse("logs/coarse.pgm");
-	coarse.autoQuantize();
-	coarse.writeToFile("out.pgm");
+	PGMImage map("logs/tags.pgm");
+	printf("%i x %i\n", map.width, map.height);
+	for (int i = 0; i < map.width; i++) {
+		for (int j = 0; j < map.height; j++) {
+			if (map.getPixel(i, j) < 255)
+				printf("(%i, %i)\n", i, j);
+		}
+	}
 	return 0;
 }*/
 

@@ -11,28 +11,16 @@
 
 using namespace std;
 
-//Define a struct that can hold multiple readings of the same
-//tag in one cell
-struct TagReadingX {
-	int id;
-	int strength;
-	int totalread;
-};
-
-typedef struct TagReadingX treadx;
-
 class HeatMaps {
 public:
-	PGMImage mapimage;
-	RFIDLog rfidlog;
+	PGMImage* mapimage;
+	RFIDLog* rfidlog;
 	double mapRes;//The number of meters per cell
 	int width, height;
 	int originX, originY;
 	
-	//A two dimensional array of maps, whose resolution
-	//matches the resolution of "map."  Each cell stores the
-	//RFID tag readings found at that position
-	vector<map<int, treadx> > heatmaps;
+	//This map stores an image for every tag ID
+	map<int, PGMImage*> heatmaps;
 	
 	HeatMaps(double mres, const char* mapfile, const char* logfileamcl, const char* logfilerfid);
 	~HeatMaps();
