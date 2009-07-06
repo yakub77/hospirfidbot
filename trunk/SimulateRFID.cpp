@@ -68,13 +68,13 @@ int main(int argc, char** argv) {
 			&index, &type, &subtype, &x, &y, &theta);
 		skipLine(fin);
 		vector<struct FakeTag> visibletags;
-		double min_decay = 0.3;
+		double min_decay = 0.1;
 		for (int i = 0; i < tags.size(); i++) {
 			//TODO:
 			double dx = tags[i].x - x;
 			double dy = tags[i].y - y;
 			double rSquared = dx*dx + dy*dy;
-			double decay = 1.0 / (1 + 0.01*rSquared);
+			double decay = 1.0 / (1 + (0.5) * rSquared);
 			if (decay > min_decay) {
 				struct FakeTag visibletag;
 				visibletag.id = i;

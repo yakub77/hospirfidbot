@@ -11,6 +11,7 @@ RFIDLog::RFIDLog(const char* filename) {
 		fprintf(stderr, "ERROR: Unable to open file %s\n", filename);
 		return;
 	}
+	numtags = 0;
 	while (!feof(fp)) {
 		vector<tread> readings;
 		fscanf(fp, "%lf%i", &time, &tagsseen);
