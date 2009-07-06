@@ -91,7 +91,7 @@ PGMImage::PGMImage(const char* filename) {
 	pgmfile.read((char*)filedata, size);
 	pgmfile.close();
 	parseData(filedata, size);
-	free(filedata);
+	delete[] filedata;
 }
 
 //The constructor for creating a new PGM File
@@ -110,7 +110,7 @@ PGMImage::PGMImage(int w, int h) {
 
 PGMImage::~PGMImage() {
 	if (imgdata != NULL)
-		free(imgdata);//Clean up dynamic memory*/
+		delete[] imgdata;//Clean up dynamic memory*/
 }
 
 //i is position along the width, j is position along the height
