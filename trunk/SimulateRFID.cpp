@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
 		//<time> <#tags> <string hex id> <strength 1> ..... 
 		fprintf(fout, "%lf %i ", time, visibletags.size());
 		for (int i = 0; i < visibletags.size(); i++) {
-			fprintf(fout, "%i %i ", visibletags[i].id, (int)(visibletags[i].strength * 255));
+			fprintf(fout, "%i %i ", visibletags[i].id, (int)(visibletags[i].strength * 100));
 		}
 		fprintf(fout, "\n");
 	}

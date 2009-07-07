@@ -17,7 +17,8 @@ int HeatMaps::getMapX(double x) {
 
 int HeatMaps::getMapY(double y) {
 	int temp = (int)(y / mapRes);
-	return temp + originY;
+	temp = temp + originY;
+	return height - temp;
 }
 
 //A helper function for the constructor; this function goes through
@@ -49,6 +50,7 @@ void HeatMaps::fillHeatMaps(const char* logfileamcl) {
 		skipLine(fp);
 		int mapX = getMapX(x);
 		int mapY = getMapY(y);
+		//printf("(%f, %f)   (%i, %i) \n", x, y, mapX, mapY);
 		vector<tread> tagreadings = rfidlog->getClosestReadings(time);
 		for (int i = 0; i < tagreadings.size(); i++) {
 			int id = tagreadings[i].id;
