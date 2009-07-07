@@ -394,7 +394,7 @@ class M5e:
             except IOError:
                 print "The log file name must be valid."
         
-        path = '/home/tbg4/Desktop/hospirfidbot/logs/' + logname
+        path = '/home/createbrain/Desktop/hospirfidbot/logs/' + logname
         f = file(path, 'w')     #this line and the next generate the log file
         f.close()
         t = str(time())
@@ -426,7 +426,7 @@ class M5e:
             except IOError:
                 print "The timer must be valid."
         
-        path = '/home/tbg4/Desktop/hospirfidbot/logs/' + logname
+        path = '/home/createbrain/Desktop/hospirfidbot/logs/' + logname
         #remove(path)         #delete current log file
         f = file(path, 'w')     #this line and the next generate the log file
         f.close()
