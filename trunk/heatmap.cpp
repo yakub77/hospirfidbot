@@ -59,6 +59,14 @@ void HeatMaps::fillHeatMaps(const char* logfileamcl) {
 				//A heatmap has not been made for that tag yet;
 				//allocate space for one
 				heatmaps[id] = new PGMImage(width, height);
+				strongestPos[id].strength = strength;
+				strongestPos[id].x = x;
+				strongestPos[id].y = y;
+			}
+			else if (strength > strongestPos[id].strength) {
+				strongestPos[id].strength = strength;
+				strongestPos[id].x = x;
+				strongestPos[id].y = y;
 			}
 			heatmaps[id]->setPixel(mapX, mapY, strength);
 		}
@@ -104,3 +112,20 @@ void HeatMaps::saveHeatMap(int tagid, const char* filename) {
 	heatmaps[tagid]->writeToFile(filename);
 }
 
+//Format: 
+//mapRes
+//<tag assigned int id> <tag hex id> <max strength at centroid> <centroid x position (meters)> <centroid y position (meters)>
+void HeatMaps::saveCentroids(const char* filename) {
+	FILE* fp = fopen(filename, "w");
+	if (fp == NULL) {
+		fprintf(stderr, "ERROR: Unable to open file %s\n", filename);
+		return;
+	}
+	fprintf(fp, "%lf\n", mapRes);
+	map<int, struct Coord>::iterator iter = strongestPos.begin();
+	while (iter != strongestPos.end()) {
+		fprintf(fp, "%i %s %i %lf %lf\n", iter->first, rfidlog->reverseTags[iter->first].data(), iter->second.strength,
+			iter->second.x, iter->second.y);
+		iter++;
+	}
+}

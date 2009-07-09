@@ -16,5 +16,6 @@ int main(int argc, char** argv) {
 		heatmaps.saveHeatMap(id, (const char*)filename);
 		iter++;
 	}
+	heatmaps.saveCentroids("centroids.txt");
 	return 0;
 }
