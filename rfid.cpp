@@ -40,6 +40,11 @@ RFIDLog::RFIDLog(const char* filename) {
 		}
 		timeReadings[time] = readings;
 	}
+	simap::iterator iter = tags.begin();
+	while (iter != tags.end()) {
+		reverseTags[iter->second] = iter->first;
+		iter++;
+	}
 }
 
 vector<tread> RFIDLog::getClosestReadings(double time) {

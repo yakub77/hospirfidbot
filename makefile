@@ -4,7 +4,7 @@ JAVA = javac
 PKGCONFIG = `pkg-config --cflags --libs playerc++`
 #LIBS = -I /usr/include/estools -I /usr/include/festival/ -lestools -lestbase -leststring -lesd -lncurses -ltermcap -lstdc++
 
-all: makeheatmaps hallwaydrive log2jpeg player2dpslam SimulateRFID ViewHeatmaps
+all: makeheatmaps hallwaydrive log2jpeg player2dpslam SimulateRFID ViewHeatmaps QuickRFIDView
 
 clobber: clean
 	rm -f *~ \#*\# core
@@ -12,11 +12,14 @@ clobber: clean
 clean:
 	rm -f main *.o
 
+QuickRFIDView: QuickRFIDView.cpp rfid.o
+	$(CPP) -o QuickRFIDView QuickRFIDView.cpp rfid.o
+
 SimulateRFID: SimulateRFID.cpp pgm.o
 	$(CPP) -o SimulateRFID SimulateRFID.cpp pgm.o
 
-ViewHeatmaps: ViewHeatmaps.java
-	$(JAVA) ViewHeatmaps.java
+ViewHeatmaps: ViewHeatmaps.java PGMImage.java
+	$(JAVA) ViewHeatmaps.java PGMImage.java
 
 makeheatmaps: makeheatmaps.o rfid.o pgm.o heatmap.o
 	$(CPP) $(LIBS) -o makeheatmaps makeheatmaps.o rfid.o pgm.o heatmap.o
@@ -48,5 +51,6 @@ player2dpslam: player2dpslam.cpp
 	
 log2jpeg: logs/log2jpeg.cc
 	$(CPP) -o logs/log2jpeg logs/log2jpeg.cc
+
 
 

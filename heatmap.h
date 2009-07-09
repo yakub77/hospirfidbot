@@ -11,6 +11,12 @@
 
 using namespace std;
 
+//Use this to store the coordinate of the strongest RFID reading
+struct Coord {
+	int strength;
+	double x, y;
+};
+
 class HeatMaps {
 public:
 	PGMImage* mapimage;
@@ -21,6 +27,7 @@ public:
 	
 	//This map stores an image for every tag ID
 	map<int, PGMImage*> heatmaps;
+	map<int, struct Coord> strongestPos;
 	
 	HeatMaps(double mres, const char* mapfile, const char* logfileamcl, const char* logfilerfid);
 	~HeatMaps();
@@ -29,6 +36,7 @@ public:
 	int getMapY(double x);
 	void fillHeatMaps(const char* logfileamcl);
 	void saveHeatMap(int tagid, const char* filename);
+	void saveCentroids(const char* filename);//Write out the "strongestPos" map to a file
 };
 
 #endif

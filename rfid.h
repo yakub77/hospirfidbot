@@ -19,6 +19,7 @@ struct TagReading {
 
 typedef struct TagReading tread;
 typedef map<string, int> simap;
+typedef map<int, string> ismap;
 
 class RFIDLog {
 public:
@@ -29,6 +30,10 @@ public:
         unsigned int numtags;
         simap tags;//Used to store all of the unique tag IDs;
         //convert from hex string to an integer id that I assign
+        
+        ismap reverseTags;//Store the same information with the role of
+        //the key and value switched (this will sort the tags in the order
+        //that they were seen)
         
         //Given a time, look up all of the RFID readings at that time in
         //the log
