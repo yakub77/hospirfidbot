@@ -105,6 +105,11 @@ public class ViewHeatmaps extends JFrame implements ListSelectionListener {
 		heatmaps = new TreeMap<String, Image>();
 		tableEntries = new TreeMap<String, RFIDTableEntry>();
 		fillTable(centroidsFile, preload);
+		if (tableEntries.size() > 0) {
+			//Do a default selection so the user knows they can use the table
+			selected = table.getValueAt(0, 0).toString();
+			table.addRowSelectionInterval(0, 0);
+		}
 		table.getSelectionModel().addListSelectionListener(this);
 		scrollPane.setBounds(0, 0, 400, 100);
 		content.add(scrollPane);
