@@ -114,42 +114,18 @@ int RFIDdriver::Connect (int port_speed) {
 
 	// Change the baud rate
 	switch (port_speed) {
-	case 1200: {
-	baudrate = B1200;
-	break;
-	}
-	case 2400: {
-	baudrate = B2400;
-	break;
-	}
-	case 4800: {
-	baudrate = B4800;
-	break;
-	}
-	case 9600: {
-	baudrate = B9600;
-	break;
-	}
-	case 19200: {
-	baudrate = B19200;
-	break;
-	}
-	case 38400: {
-	baudrate = B38400;
-	break;
-	}
-	case 57600: {
-	baudrate = B57600;
-	break;
-	}
-	case 115200: {
-	baudrate = B115200;
-	break;
-	}
-	default: {
-	PLAYER_ERROR1 (">> Unsupported speed [%d] given!", port_speed);
-	return (-1);
-	}
+		case 1200: baudrate = B1200; break;
+		case 2400: baudrate = B2400; break;
+		case 4800: baudrate = B4800; break;
+		case 9600: baudrate = B9600; break;
+		case 19200: baudrate = B19200; break;
+		case 38400: baudrate = B38400; break;
+		case 57600: baudrate = B57600; break;
+		case 115200: baudrate = B115200; break;
+		default: {
+			PLAYER_ERROR1 (">> Unsupported speed [%d] given!", port_speed);
+			return (-1);
+		}
 	}
 	// Set the baudrate to the given port_speed
 	cfsetispeed (&options, baudrate);
@@ -214,6 +190,11 @@ int RFIDdriver::ProcessMessage(QueuePointer & resp_queue,
 	return(0);
 }
 
+
+
+void sendSerial(unsigned char* message, int length) {
+	write(fd, val, length);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
