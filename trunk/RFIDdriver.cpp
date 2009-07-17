@@ -298,8 +298,8 @@ void RFIDdriver::QueryEnvironment(u16 timeout) {
         u8 timeoutHi = timeout & 0xFFFF) >> 8;
         u8 timeoutLo = timeout & 0x00FF;
         
-        u8 timeoutdata[2] = {timeoutHi, timeoutLo};
-        sendMessage(0x22, timeoutdata, 2);
+        u8 readmultipledata[4] = {0x00, 0x01, timeoutHi, timeoutLo};
+        sendMessage(0x22, readmultipledata, 4);
   		int n = readMessage(buf, 256);
   		if (n < 7) {
 	  		fprintf(stderr, "ERROR reading tags\n");	
@@ -315,35 +315,17 @@ void RFIDdriver::QueryEnvironment(u16 timeout) {
 	  		return;	
   		}
   		//At least one tag was seen
-        u16 tagsSeen = ((received.data[0] << 8) & 0xFF00) | (received.data[1] & 0x00FF);
-		printf("%i tags seen\n", tagsSeen);
+        u8 numTags = received.data[0];
+		printf("%i tags seen\n", numTags);
+		fprintf(logfile, "%i ", numTags);
 		
-		
+		while (numTags > 0) {
+			
+			numTags--;
+		}
 }
 
         /*# Get Tag Buffer
-        #   Get # Tags remaining
-        self.TransmitCommand('\x00\x29')
-        (start, length, command, status, data, CRC) = self.ReceiveResponse()
-        
-        readIndex = (ord(data[0]) << 8) + ord(data[1])
-        writeIndex = (ord(data[2]) << 8) + ord(data[3])
-        numTags = writeIndex - readIndex
-        
-#         tagEPCs = []
-#         while numTags > 0:
-#             numFetch = min([numTags, 13])
-#             numFetchHighByte = chr((numFetch & 0xFFFF) >> 8)
-#             numFetchLowByte = chr(numFetch & 0x00FF)
-#             self.TransmitCommand('\x02\x29' + numFetchHighByte + numFetchLowByte)
-#             (start, length, command, status, data, CRC) = self.ReceiveResponse()
-            
-#             # each tag occupies 18 bytes in the response, regardless of tag size
-#             for i in range(numFetch): # NOTE: first 4 bytes in GEN2 are size & protocol.  Last 2 are CRC
-#                 tagEPCs.append(data[i*18+4:(i+1)*18-2])
-#                 #tagEPCs.append(data[i*18:(i+1)*18])
-            
-#             numTags = numTags - numFetch
 
         results = []   # stored as (ID, RSSI)
         while numTags > 0:
