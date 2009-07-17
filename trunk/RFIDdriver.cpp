@@ -1,37 +1,7 @@
-/*
- *  Player - One Hell of a Robot Server
- *  Copyright (C) 2003  
- *     Brian Gerkey
- *                      
- * 
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
- */
 
-/*
- * A simple example of how to write a driver that will be built as a
- * shared object.
- */
-
-// ONLY if you need something that was #define'd as a result of configure 
-// (e.g., HAVE_CFMAKERAW), then #include <config.h>, like so:
-/*
 #if HAVE_CONFIG_H
   #include <config.h>
 #endif
-*/
 
 #include <unistd.h>
 #include <string.h>
@@ -40,50 +10,113 @@
 
 #include "RFIDdriver.h"
 
-////////////////////////////////////////////////////////////////////////////////
-// The class for the driver
+//This function updates a running CRC value
+void CRC_calcCrc8(u16* crc_calc, u8 ch) {
+	u8 i, v, xor_flag;
+	
+	//Align test bit with leftmost bit of the MsgObj byte
+	v = 0x80;
+	for (int i = 0; i < 8; i++) {
+		if (*crc_calc & 0x8000)
+			xor_flag = 1;
+		else
+			xor_flag = 0;
+		*crc_calc = *crc_calc << 1;
+		if (ch & v)
+			*crc_calc = *crc_calc + 1;
+		if (xor_flag)
+			*crc_calc = *crc_calc ^ MSG_CCITT_CRC_POLY;
+		//Align test bit with next bit of the MsgObj byte.  
+		v = v >> 1;
+	}
+}
+
+u16 CRC_calcCrcMsgObj(MsgObj* MsgObj) {
+	u16 crcReg, i;
+	crcReg = MSG_CRC_INIT;
+	
+	CRC_calcCrc8(&crcReg, MsgObj->dataLen);
+	CRC_calcCrc8(&crcReg, MsgObj->opCode);
+	for (int i = 0; i < MsgObj->dataLen; i++) {
+		CRC_calcCrc8(&crcReg, MsgObj->data[i]);
+	}
+	return crcReg;
+}
+
+MsgObj::MsgObj(u8 dL, u8 oC, u8* d) {
+	dataLen = dL;
+	opCode = oC;
+	for (int i = 0; i < dL; i++)
+		data[i] = d[i];
+	length = getLength();
+}
 
 
-// A factory creation function, declared outside of the class so that it
-// can be invoked without any object context (alternatively, you can
-// declare it static in the class).  In this function, we create and return
-// (as a generic Driver*) a pointer to a new instance of this driver.
+//[header 1 byte] [data length 1 byte] [command 1 byte] [status word 2 bytes] [data M bytes] [crc 2 bytes]
+MsgObj::MsgObj(u8* bytes, int len) {
+	assert(len >= 7);
+	if (bytes[0] != 0xFF) fprintf(stderr, "ERROR: header byte (%x) is not 0xFF\n", bytes[0]);
+	dataLen = bytes[1];
+	opCode = bytes[2];//OpCode of the last command received;
+	status = ((bytes[3] << 8) & 0xFF00) | (0x00FF & bytes[4]);
+	for (u8 i = 0; i < dataLen; i++) {
+		data[i] = bytes[i + 5];
+	}
+}
+
+MsgObj::~MsgObj() {
+
+}
+
+int MsgObj::getLength() {
+	return (int)dataLen + 5;
+}
+
+void MsgObj::getBytesToSend(u8* bytes) {
+	bytes[0] = 0xFF;
+	bytes[1] = dataLen;
+	bytes[2] = opCode;
+	for (int i = 3; i < length && (i - 3) < dataLen; i++) {
+		bytes[i] = data[i - 3];
+	}
+	u16 crc = CRC_calcCrcMsgObj(this);
+	u8 lo = (u8)(crc & 0x00FF);
+	u8 hi = (u8)((crc & 0xFF00) >> 8);
+	bytes[length - 2] = hi;
+	bytes[length - 1] = lo;
+}
+
+
+
+/////////////////////////////////////////////////////////////////////
+
 Driver* 
 RFIDdriver_Init(ConfigFile* cf, int section) {
 	// Create and return a new instance of this driver
 	return((Driver*)(new RFIDdriver(cf, section)));
 }
 
-// A driver registration function, again declared outside of the class so
-// that it can be invoked without object context.  In this function, we add
-// the driver into the given driver table, indicating which interface the
-// driver can support and how to create a driver instance.
 void RFIDdriver_Register(DriverTable* table) {
 	table->AddDriver("rfiddriver", RFIDdriver_Init);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Constructor.  Retrieve options from the configuration file and do any
-// pre-Setup() setup.
 RFIDdriver::RFIDdriver(ConfigFile* cf, int section)
     : Driver(cf, section, false, PLAYER_MSGQUEUE_DEFAULT_MAXLEN, 
              PLAYER_RFID_CODE) {
-	// Read an option from the configuration file
-	this->baudrate = cf->ReadInt(section, "baudrate", DEFAULT_BAUD);
 	this->port = (char*)cf->ReadString(section, "port", "/dev/ttyUSB0");
 	
-	printf("baudrate = %i\nport = %s\n", this->baudrate, this->port); 
+	readPwr = 3000;
+	logfile = fopen("rfidtags.log", "w");
 	return;
 }
 
 int RFIDdriver::Connect (int port_speed) {
 	// Open serial port
 	fd = open (port, O_RDWR);
-	if (fd < 0)
-	{
-	PLAYER_ERROR2 ("> Connecting to RFID Device on [%s]; [%s]...[failed!]",
-		   (char*) port, strerror (errno));
-	return (-1);
+	if (fd < 0) {
+		PLAYER_ERROR2 ("> Connecting to RFID Device on [%s]; [%s]...[failed!]",
+			   (char*) port, strerror (errno));
+		return -1;
 	}
 
 	// Change port settings
@@ -91,8 +124,8 @@ int RFIDdriver::Connect (int port_speed) {
 	memset (&options, 0, sizeof (options));// clear the struct for new port settings
 	// Get the current port settings
 	if (tcgetattr (fd, &options) != 0) {
-	PLAYER_ERROR (">> Unable to get serial port attributes !");
-	return (-1);
+		PLAYER_ERROR (">> Unable to get serial port attributes !");
+		return (-1);
 	}
 	tcgetattr (fd, &initial_options);
 
@@ -108,6 +141,10 @@ int RFIDdriver::Connect (int port_speed) {
 	options.c_cflag |= (CS8);     // set bit size (default is 8)
 	options.c_oflag &= ~(OPOST);  // turn output processing off
 
+
+	options.c_cc[VMIN] = 0;
+	options.c_cc[VTIME] = 20;//Have a timeout of 2 seconds
+
 	// read satisfied if TIME is exceeded (t = TIME *0.1 s)
 	//  options.c_cc[VTIME] = 1;
 	//  options.c_cc[VMIN] = 0;
@@ -119,6 +156,7 @@ int RFIDdriver::Connect (int port_speed) {
 		case 4800: baudrate = B4800; break;
 		case 9600: baudrate = B9600; break;
 		case 19200: baudrate = B19200; break;
+		case 230400: baudrate = B230400; break;
 		case 38400: baudrate = B38400; break;
 		case 57600: baudrate = B57600; break;
 		case 115200: baudrate = B115200; break;
@@ -132,70 +170,281 @@ int RFIDdriver::Connect (int port_speed) {
 	cfsetospeed (&options, baudrate);
 
 	// Activate the settings for the port
-	if (tcsetattr (fd, TCSAFLUSH, &options) < 0)
-	{
-	PLAYER_ERROR (">> Unable to set serial port attributes !");
-	return (-1);
+	if (tcsetattr (fd, TCSAFLUSH, &options) < 0) {
+		PLAYER_ERROR (">> Unable to set serial port attributes !");
+		return (-1);
 	}
 
-	PLAYER_MSG1 (1, "> Connecting to SICK RFI341 at %dbps...[done]", port_speed);
+	PLAYER_MSG1 (1, "> Connecting to RFID Reader at %dbps...[done]", port_speed);
 	// Make sure queues are empty before we begin
 	tcflush (fd, TCIOFLUSH);
 
 	return (0);
 }
 
+void RFIDdriver::Disconnect() {
+	close(fd);
+}
+
+//Pass the command and data parts of the MsgObj here
+void RFIDdriver::sendMessage(u8 command, u8* data, int length) {
+	MsgObj message(length, command, data);
+	u8 bytes[256];
+	message.getBytesToSend(bytes);
+	//printf("\n\n");
+	//for (int i = 0; i < message.getLength(); i++)
+	//	printf("%x ", bytes[i]);
+	//printf("\n\n");
+	write(fd, bytes, message.getLength());
+}
+
+int RFIDdriver::readMessage(u8* data, int length) {
+	memset(data, 0x00, length);
+	int n = read(fd, data, length);
+	if (n == 0) 
+		fprintf(stderr, "Error: Serial communication timed out\n");
+	return n;
+}
+
+bool validateCRC(u8* buf, int n) {
+	//TODO: Validate CRC on commands that come back from the reader
+}
+
+//Return true if the message has the 0x0000 code for completed successfully
+bool checkSuccess(u8* buf, int n) {
+	if (n < 7) return false;
+	MsgObj received(buf, n);
+	return (received.status == 0x0000);
+}
+
+//Return true if successful
+bool RFIDdriver::checkBootFirmwareVersion() {
+	u8 buf[256];
+	sendMessage(0x03, NULL, 0);//"Get bootloader firmware version number"
+	int n = readMessage(buf, 256);
+	return checkSuccess(buf, n);
+}
+
+bool RFIDdriver::bootFirmware() {
+	u8 buf[256];
+	
+        //Check if BootLoader is running by issuing "Get BootLoader/Firmware Version"        
+        if (!checkBootFirmwareVersion()) 
+        	return false;
+        
+        //Boot into Firmware
+        printf("\tBooting into firmware\n");
+        sendMessage(0x04, NULL, 0);
+	
+	int n = readMessage(buf, 256);
+	if (n < 7) return false;
+	
+	MsgObj response(buf, 256);
+	
+	if (response.status == 0x0000)
+		return true;//New boot was successfull
+
+	// Non-Zero Response will be received if the reader has already booted into firmware
+	//   This occurs when you've already powered-up & previously configured the reader.  
+	//   Can safely ignore this problem and continue initialization
+        if (response.status == 0x0101) //This actually means "invalid opcode"
+		return true;
+		
+	return false;
+}
+
+bool RFIDdriver::ChangeAntennaPorts(u8 TXport, u8 RXport) {
+	u8 buf[256];
+	u8 data[2] = {TXport, RXport};
+	sendMessage(0x91, data, 2);
+	int n = readMessage(buf, 256);
+	return checkSuccess(buf, n);
+	
+}
+        
+bool RFIDdriver::ChangeTXReadPower(u16 r) {
+        u8 buf[256];
+        readPwr = r;
+        u8 hi = (readPwr & 0xFFFF) >> 8;
+        u8 lo = (readPwr & 0x00FF);
+        u8 data[2] = {hi, lo};
+        sendMessage(0x92, data, 2);
+        int n = readMessage(buf, 256);
+        return checkSuccess(buf, n);
+}
+
+//Set protocol to gen2
+bool RFIDdriver::setProtocol() {
+        u8 buf[256];
+        u8 data[2] = {0x00, 0x05};
+        sendMessage(0x93, data, 2);
+        int n = readMessage(buf, 256);
+        return checkSuccess(buf, n);
+}
+
+bool RFIDdriver::setRegion() {
+        //Set Region (we're only going to deal with North America)
+        u8 buf[256];
+        u8 data[1] = {0x01};
+        sendMessage(0x97, data, 1);
+        int n = readMessage(buf, 256);
+        return checkSuccess(buf, n);
+}
+
+void  RFIDdriver::QueryEnvironment(u16 timeout):
+        # Read Tag ID Multiple
+        u8 timeoutHi = timeout & 0xFFFF) >> 8;
+        u8 timeoutLo = timeout & 0x00FF;
+        try:
+            self.TransmitCommand('\x04\x22\x00\x00'+timeoutHighByte+timeoutLowByte)
+            self.ReceiveResponse()
+        except M5e_CommandStatusError, inst:
+            flag = False
+            # Read & Get returns non-zero status when no tags found.  This is 
+            #   an expected event... so ignore the exception.
+            if inst[1] == '\x04\x00':   
+                return []
+            else:
+                raise
+
+        # Get Tag Buffer
+        #   Get # Tags remaining
+        self.TransmitCommand('\x00\x29')
+        (start, length, command, status, data, CRC) = self.ReceiveResponse()
+        
+        readIndex = (ord(data[0]) << 8) + ord(data[1])
+        writeIndex = (ord(data[2]) << 8) + ord(data[3])
+        numTags = writeIndex - readIndex
+        
+#         tagEPCs = []
+#         while numTags > 0:
+#             numFetch = min([numTags, 13])
+#             numFetchHighByte = chr((numFetch & 0xFFFF) >> 8)
+#             numFetchLowByte = chr(numFetch & 0x00FF)
+#             self.TransmitCommand('\x02\x29' + numFetchHighByte + numFetchLowByte)
+#             (start, length, command, status, data, CRC) = self.ReceiveResponse()
+            
+#             # each tag occupies 18 bytes in the response, regardless of tag size
+#             for i in range(numFetch): # NOTE: first 4 bytes in GEN2 are size & protocol.  Last 2 are CRC
+#                 tagEPCs.append(data[i*18+4:(i+1)*18-2])
+#                 #tagEPCs.append(data[i*18:(i+1)*18])
+            
+#             numTags = numTags - numFetch
+
+        results = []   # stored as (ID, RSSI)
+        while numTags > 0:
+            self.TransmitCommand('\x03\x29\x00\x02\x00')
+            (start, length, command, status, data, CRC) = self.ReceiveResponse()
+
+            tagsRetrieved = ord(data[3])
+            for i in xrange(tagsRetrieved):
+                rssi = ord(data[4 + i*19])
+                tagID = data[4 + i*19 + 5 : 4 + i*19 + 5 + 12]
+                results.append( (tagID, rssi) )
+            
+            numTags = numTags - tagsRetrieved
+            
+        # Reset/Clear the Tag ID Buffer for next Read Tag ID Multiple
+        self.TransmitCommand('\x00\x2A')
+        self.ReceiveResponse()
+            
+        return results
+*/
+
 ////////////////////////////////////////////////////////////////////////////////
 // Set up the device.  Return 0 if things go well, and -1 otherwise.
 int RFIDdriver::Setup() {   
-	puts("new RFID driver initialising");
+	printf("RFID driver initialising\n\n");
+	printf("\tAttempting 230400 bps...\n");
+	Connect(230400);
 
-	// Here you do whatever is necessary to setup the device, like open and
-	// configure a serial port.
+	if (!checkBootFirmwareVersion())  {
+		fprintf(stderr, "\tFailed @ 230400 bps\nAttempting 9600 bps...");
+		Disconnect();
+		Connect(9600);
+		
+		if (!checkBootFirmwareVersion()) {
+			fprintf(stderr, "\tFailed @ 9600 bps\n");
+			fprintf(stderr, "\tCould not open serial port %s at baudrate 230400 bps or 9600 bps\n", port);
+			Disconnect();
+			return 1;
+		}
+		else {
+			printf("\tSuccessful @ 9600 bps\n");
+			//Change baud to 230400 bps
+			printf("\tSwitching to 230400 bps\n");
+			u8 newbaudrate[4] = {0x00, 0x03, 0x84, 0x00};
+			sendMessage(0x06, newbaudrate, 4);
+			Disconnect();
+			printf("\tAttempting to reconnect @ 230400 bps\n");
+			Connect(230400);
+			
+			if (!checkBootFirmwareVersion()) {
+				fprintf(stderr, "\tFailed @ 230400 bps\n");
+				return 1;	
+			}
+			else
+				printf("\tSuccessfuly reconnected @ 230400 bps\n");
+			
+		}
+	}
+	else {
+		printf("\tSuccessful @ 230400 bps\n");
+	}
+	
+	//Now boot into firmware
+	if (!bootFirmware()) {
+		fprintf(stderr, "Failed to boot firmware\n");
+		return 1;
+	}
 
-	Connect(baudrate);
+	if (!ChangeAntennaPorts(1, 1)) {
+		fprintf(stderr, "Failed to change antenna ports\n");
+		return 1;
+	}
+	
+	if (!ChangeTXReadPower(readPwr)) {
+		fprintf(stderr, "Failed to change read power to %i\n", readPwr);
+		return 1;
+	}
+	
+	if (!setProtocol()) {
+		fprintf(stderr, "Failed to set protocol to GEN2\n");
+		return 1;
+	}
+	
+	if (!setRegion()) {
+		fprintf(stderr, "Failed to set region\n");
+		return 1;
+	}
 
-	puts("Example driver ready");
+	// Set Power Mode (we'll just use default of "full power mode").
+        // Use remaining defaults
 
 	// Start the device thread; spawns a new thread and executes
 	// RFIDdriver::Main(), which contains the main loop for the driver.
 	StartThread();
 
-	return(0);
+	return 0;
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // Shutdown the device
 int RFIDdriver::Shutdown() {
-	puts("Shutting example driver down");
-
 	// Stop and join the driver thread
 	StopThread();
-
-	// Here you would shut the device down by, for example, closing a
-	// serial port.
-
-	puts("Example driver has been shutdown");
-
-	return(0);
+	return 0;
 }
 
-int RFIDdriver::ProcessMessage(QueuePointer & resp_queue, 
+int RFIDdriver::ProcessMsgObj(QueuePointer & resp_queue, 
                                   player_msghdr * hdr,
                                   void * data) {
-	// Process messages here.  Send a response if necessary, using Publish().
-	// If you handle the message successfully, return 0.  Otherwise,
+	// Process MsgObjs here.  Send a response if necessary, using Publish().
+	// If you handle the MsgObj successfully, return 0.  Otherwise,
 	// return -1, and a NACK will be sent for you, if a response is required.
 	return(0);
 }
-
-
-
-void sendSerial(unsigned char* message, int length) {
-	write(fd, val, length);
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Main function for device thread
@@ -204,20 +453,17 @@ void RFIDdriver::Main() {
 	// Check to see if Player is trying to terminate the plugin thread
 	pthread_testcancel();
 
-	// Process messages
+	// Process MsgObjs
 	ProcessMessages(); 
 
-        /*player_rfid_data_t data_rfid;
-        data_rfid.tags = new player_rfid_tag_t[1];
-        
-        //TODO:
-
-        //Publishing data.
-        if (rfid_id.interf !=0) {
-            Publish(rfid_id, PLAYER_MSGTYPE_DATA, PLAYER_RFID_DATA_TAGS, (unsigned char*)&data_rfid, sizeof(player_rfid_data_t), NULL);
-        }
-        delete [] data_rfid.tags[0].guid;
-        delete [] data_rfid.tags;*/
+	u8 rbytes[256];
+	sendMessage(0x03, NULL, 0);
+	readMessage(rbytes, 256);
+	MsgObj message(rbytes, 256);
+	printf("%x ", message.status);
+	
+	fprintf(logfile, "%lf 1 0a234b19ef2a 22\n", (double)clock());
+	usleep(100);
     }
 }
 
