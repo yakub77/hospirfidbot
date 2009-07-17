@@ -47,8 +47,8 @@ public:
 	virtual int Setup();
 	virtual int Shutdown();
 
-	// This method will be invoked on each incoming MsgObj
-	virtual int ProcessMsgObj(QueuePointer &resp_queue, 
+	// This method will be invoked on each incoming Message
+	virtual int ProcessMessage(QueuePointer &resp_queue, 
 		               player_msghdr * hdr,
 		               void * data);
 
@@ -65,6 +65,7 @@ private:
     	bool ChangeTXReadPower(u16 r);
     	bool setProtocol();
     	bool setRegion();
+    	void QueryEnvironment(u16 timeout);
 
 	struct termios initial_options;
 	char* port;
