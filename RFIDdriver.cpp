@@ -291,23 +291,37 @@ bool RFIDdriver::setRegion() {
         return checkSuccess(buf, n);
 }
 
-void  RFIDdriver::QueryEnvironment(u16 timeout):
-        # Read Tag ID Multiple
+void RFIDdriver::QueryEnvironment(u16 timeout) {
+		u8 buf[256];
+
+        //Send "Read Tag ID Multiple" Command (opCode 22)
         u8 timeoutHi = timeout & 0xFFFF) >> 8;
         u8 timeoutLo = timeout & 0x00FF;
-        try:
-            self.TransmitCommand('\x04\x22\x00\x00'+timeoutHighByte+timeoutLowByte)
-            self.ReceiveResponse()
-        except M5e_CommandStatusError, inst:
-            flag = False
-            # Read & Get returns non-zero status when no tags found.  This is 
-            #   an expected event... so ignore the exception.
-            if inst[1] == '\x04\x00':   
-                return []
-            else:
-                raise
+        
+        u8 timeoutdata[2] = {timeoutHi, timeoutLo};
+        sendMessage(0x22, timeoutdata, 2);
+  		int n = readMessage(buf, 256);
+  		if (n < 7) {
+	  		fprintf(stderr, "ERROR reading tags\n");	
+	  		return;
+  		}
+  		MsgObj received(buf, n);
+  		if (received.status == 0x0400) {
+	  		//No tags were found
+	  		printf("No tags found\n");
+	  		return;
+  		}
+  		else if (received.status != 0x0000) {
+	  		return;	
+  		}
+  		//At least one tag was seen
+        u16 tagsSeen = ((received.data[0] << 8) & 0xFF00) | (received.data[1] & 0x00FF);
+		printf("%i tags seen\n", tagsSeen);
+		
+		
+}
 
-        # Get Tag Buffer
+        /*# Get Tag Buffer
         #   Get # Tags remaining
         self.TransmitCommand('\x00\x29')
         (start, length, command, status, data, CRC) = self.ReceiveResponse()
@@ -348,7 +362,7 @@ void  RFIDdriver::QueryEnvironment(u16 timeout):
         self.TransmitCommand('\x00\x2A')
         self.ReceiveResponse()
             
-        return results
+        return results*/
 */
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -437,7 +451,7 @@ int RFIDdriver::Shutdown() {
 	return 0;
 }
 
-int RFIDdriver::ProcessMsgObj(QueuePointer & resp_queue, 
+int RFIDdriver::ProcessMessage(QueuePointer & resp_queue, 
                                   player_msghdr * hdr,
                                   void * data) {
 	// Process MsgObjs here.  Send a response if necessary, using Publish().
@@ -450,20 +464,14 @@ int RFIDdriver::ProcessMsgObj(QueuePointer & resp_queue,
 // Main function for device thread
 void RFIDdriver::Main() {
     while (true)  {
-	// Check to see if Player is trying to terminate the plugin thread
-	pthread_testcancel();
-
-	// Process MsgObjs
-	ProcessMessages(); 
-
-	u8 rbytes[256];
-	sendMessage(0x03, NULL, 0);
-	readMessage(rbytes, 256);
-	MsgObj message(rbytes, 256);
-	printf("%x ", message.status);
+		// Check to see if Player is trying to terminate the plugin thread
+		pthread_testcancel();
 	
-	fprintf(logfile, "%lf 1 0a234b19ef2a 22\n", (double)clock());
-	usleep(100);
+		// Process MsgObjs
+		ProcessMessages(); 
+		
+		QueryEnvironment();
+		
     }
 }
 
