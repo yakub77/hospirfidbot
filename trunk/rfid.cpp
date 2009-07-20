@@ -53,7 +53,7 @@ vector<tread> RFIDLog::getClosestReadings(double time) {
 	if (timeReadings.find(time) != timeReadings.end())
 		return timeReadings[time];
 	
-	map<double, vector<tread>, CompareDouble>::iterator pos, before, after, closest;
+	map<double, vector<tread>, CompareDouble>::iterator pos, before, after, closest, last;
 	//The exact time is not there, so find the nearest one
 	//Insert a fake entry to exploit the tree structure of the map;
 	//the map is sorted already, so put in an entry and get a pointer to it
@@ -66,11 +66,15 @@ vector<tread> RFIDLog::getClosestReadings(double time) {
 	pos = timeReadings.find(time);
 	before = pos; before--;
 	after = pos; after++;
+	last = timeReadings.end();
+	last--;
 	if (pos == timeReadings.begin()) {
 		//Corner case: The time is less than the first time in the logfile
+		printf("Warning: Looking before beginning of logfile\n");
 		toReturn = after->second;
 	}
-	else if (pos == timeReadings.end()) {
+	else if (pos == last) {
+		printf("Warning: reached end of rfid logfile\n");
 		//Corner case: The time is greater than the last time in the logfile
 		toReturn = before->second;
 	}
@@ -85,7 +89,6 @@ vector<tread> RFIDLog::getClosestReadings(double time) {
 			toReturn = after->second;
 	}
 	//printf("%f < %f < %f \n", before->first, time, after->first);
-	
 	//Clean up after adding the dummy value
 	timeReadings.erase(pos);
 	return toReturn;
