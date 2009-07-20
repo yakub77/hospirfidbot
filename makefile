@@ -4,7 +4,7 @@ JAVA = javac
 PKGCONFIG = `pkg-config --cflags --libs playerc++`
 #LIBS = -I /usr/include/estools -I /usr/include/festival/ -lestools -lestbase -leststring -lesd -lncurses -ltermcap -lstdc++
 
-all: makeheatmaps hallwaydrive player2dpslam SimulateRFID QuickRFIDView RFIDdriver RFIDdriver.so
+all: makeheatmaps hallwaydrive player2dpslam SimulateRFID QuickRFIDView AutoQuantize RFIDdriver RFIDdriver.so
 
 #all: makeheatmaps hallwaydrive log2jpeg player2dpslam SimulateRFID ViewHeatmaps QuickRFIDView RFIDdriver RFIDdriver.so
 
@@ -19,6 +19,9 @@ RFIDdriver.so: RFIDdriver.o
 
 RFIDdriver: RFIDdriver.h RFIDdriver.cpp
 	$(CPP) $(LIBS) -c RFIDdriver.cpp $(PKGCONFIG)
+
+AutoQuantize: AutoQuantize.cpp pgm.o
+	$(CPP) -o AutoQuantize AutoQuantize.cpp pgm.o
 
 QuickRFIDView: QuickRFIDView.cpp rfid.o
 	$(CPP) -o QuickRFIDView QuickRFIDView.cpp rfid.o

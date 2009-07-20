@@ -76,6 +76,7 @@ private:
 	u16 readPwr;
 	FILE* logfile;
 	int baudrate;
+	u16 querytimeout;
 };
 
 #endif

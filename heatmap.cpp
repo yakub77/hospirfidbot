@@ -71,6 +71,7 @@ void HeatMaps::fillHeatMaps(const char* logfileamcl) {
 			heatmaps[id]->setPixel(mapX, mapY, strength);
 		}
 	}
+	printf("finished making heatmaps\n");
 }
 
 //Fill in all of the information needed to create heatmaps of every RFID tag found in

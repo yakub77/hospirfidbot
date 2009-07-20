@@ -130,6 +130,7 @@ RFIDdriver::RFIDdriver(ConfigFile* cf, int section)
 	this->port = (char*)cf->ReadString(section, "port", "/dev/ttyUSB0");
 	debug = atoi((char*)cf->ReadString(section, "debug", "0"));
 	printlive = atoi((char*)cf->ReadString(section, "printlive", "0"));
+	querytimeout = atoi((char*)cf->ReadString(section, "timeout", "50"));
 	
 	readPwr = 3000;
 	//Let the user specify the location of the logfile
@@ -387,8 +388,8 @@ void RFIDdriver::QueryEnvironment(u16 timeout) {
 	
 	int numTags = WriteIndex - ReadIndex;
 	
-	if (printlive)	printf("%.2lf %i ", readtime, numTags);
-	fprintf(logfile, "%.2lf %i ", readtime, numTags);
+	if (printlive)	printf("%.3lf %i ", readtime, numTags);
+	fprintf(logfile, "%.3lf %i ", readtime, numTags);
 	
 	while (numTags > 0) {
 		u8 getbufferdata[3] = {0x00, 0x02, 0x00};
