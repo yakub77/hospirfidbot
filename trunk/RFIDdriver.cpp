@@ -11,7 +11,9 @@
 #include "RFIDdriver.h"
 
 static int TIMEOUT = 2;//Timeout in seconds
-static bool debug = false;
+static bool debug = false;//Print out the hex data for sending / receiving commands
+static bool printlive = false;//Controls whether all of the tag information is printed to stdout 
+//in addition to the logfile
 
 //This function updates a running CRC value
 void CRC_calcCrc8(u16* crc_calc, u8 ch) {
@@ -127,9 +129,11 @@ RFIDdriver::RFIDdriver(ConfigFile* cf, int section)
              PLAYER_RFID_CODE) {
 	this->port = (char*)cf->ReadString(section, "port", "/dev/ttyUSB0");
 	debug = atoi((char*)cf->ReadString(section, "debug", "0"));
+	printlive = atoi((char*)cf->ReadString(section, "printlive", "0"));
 	
 	readPwr = 3000;
-	logfile = fopen("rfidtags.log", "w");
+	//Let the user specify the location of the logfile
+	logfile = fopen((char*)cf->ReadString(section, "logfile", "rfidtags.log"), "w");
 	return;
 }
 
@@ -350,8 +354,13 @@ void RFIDdriver::QueryEnvironment(u16 timeout) {
         
         u8 readmultipledata[4] = {0x00, 0x00, timeoutHi, timeoutLo};
         sendMessage(0x22, readmultipledata, 4);
-
-	usleep(timeout * 2);
+	
+	timeval tim;
+	gettimeofday(&tim, NULL);
+	double readtime = tim.tv_sec + (tim.tv_usec / 1000000.0);
+	
+	usleep(timeout * 2);//Sleep to give the reader enough time to execute this command and 
+	//send the data back
 	int n = readMessage(buf, 256, 0);
 	if (n < 7) {
   		fprintf(stderr, "ERROR sending \"Read Tag ID Multiple\"; n = %i\n", n);	
@@ -360,8 +369,6 @@ void RFIDdriver::QueryEnvironment(u16 timeout) {
 	MsgObj received(buf, n);
 	if (received.status == 0x0400) {
   		//No tags were found
-  		printf("No tags found\n");
-  		//fprintf(logfile, "%i: No tags found\n", (int)time(NULL));
   		return;
 	}
 	
@@ -380,7 +387,8 @@ void RFIDdriver::QueryEnvironment(u16 timeout) {
 	
 	int numTags = WriteIndex - ReadIndex;
 	
-	fprintf(logfile, "%i %i ", (int)time(NULL), numTags);
+	if (printlive)	printf("%.2lf %i ", readtime, numTags);
+	fprintf(logfile, "%.2lf %i ", readtime, numTags);
 	
 	while (numTags > 0) {
 		u8 getbufferdata[3] = {0x00, 0x02, 0x00};
@@ -400,14 +408,14 @@ void RFIDdriver::QueryEnvironment(u16 timeout) {
 			int rssi = tagread->data[4 + i*19];
 			//Print the tag id as a hex string
 			for (int j = 4 + i*19 + 5; j < 4 + i*19 + 5 + 12; j++) {
-				printf("%.2x", tagread->data[j]);
+				if (printlive)	printf("%.2x", tagread->data[j]);
 				fprintf(logfile, "%.2x", tagread->data[j]);
 			}
 			//Then print the tag strength
-			printf(" %i ", rssi);
+			if (printlive)	printf(" %i ", rssi);
 			fprintf(logfile, " %i ", rssi);
 		}
-		printf("\n");
+		if (printlive)	printf("\n");
 		fprintf(logfile, "\n");
 		delete tagread;
 		numTags -= num;
