@@ -10,6 +10,9 @@
 
 #include "RFIDdriver.h"
 
+static int TIMEOUT = 2;//Timeout in seconds
+static bool debug = false;
+
 //This function updates a running CRC value
 void CRC_calcCrc8(u16* crc_calc, u8 ch) {
 	u8 i, v, xor_flag;
@@ -41,6 +44,25 @@ u16 CRC_calcCrcMsgObj(MsgObj* MsgObj) {
 		CRC_calcCrc8(&crcReg, MsgObj->data[i]);
 	}
 	return crcReg;
+}
+
+//Used to validate the CRC for the received bytes
+bool validateCRC(u8* buf, int n) {
+	//TODO: Fix this (it doesn't work right now)
+	if (n < 7)
+		return false;
+	u16 crcReg = MSG_CRC_INIT;
+	for (int i = 0; i < n; i++) {
+		CRC_calcCrc8(&crcReg, buf[i]);
+	}
+	//This is the CRC returned from the reader
+	u16 thiscrc = ((buf[n - 1] & 0x00FF) << 8) | (buf[n - 2] & 0x00FF);
+	printf("%x %x", buf[n -2], buf[n - 1]);
+	bool equal = (thiscrc == crcReg);
+	if (!equal) {
+		fprintf(stderr, "Warning: CRC check failed: Got %x, expecting %x\n", thiscrc, crcReg);
+	}
+	return equal;
 }
 
 MsgObj::MsgObj(u8 dL, u8 oC, u8* d) {
@@ -104,6 +126,7 @@ RFIDdriver::RFIDdriver(ConfigFile* cf, int section)
     : Driver(cf, section, false, PLAYER_MSGQUEUE_DEFAULT_MAXLEN, 
              PLAYER_RFID_CODE) {
 	this->port = (char*)cf->ReadString(section, "port", "/dev/ttyUSB0");
+	debug = atoi((char*)cf->ReadString(section, "debug", "0"));
 	
 	readPwr = 3000;
 	logfile = fopen("rfidtags.log", "w");
@@ -143,7 +166,7 @@ int RFIDdriver::Connect (int port_speed) {
 
 
 	options.c_cc[VMIN] = 0;
-	options.c_cc[VTIME] = 20;//Have a timeout of 2 seconds
+	options.c_cc[VTIME] = 10 * TIMEOUT;//Have a timeout of 2 seconds
 
 	// read satisfied if TIME is exceeded (t = TIME *0.1 s)
 	//  options.c_cc[VTIME] = 1;
@@ -175,7 +198,7 @@ int RFIDdriver::Connect (int port_speed) {
 		return (-1);
 	}
 
-	PLAYER_MSG1 (1, "> Connecting to RFID Reader at %dbps...[done]", port_speed);
+	//PLAYER_MSG1 (1, "> Connecting to RFID Reader at %dbps...[done]", port_speed);
 	// Make sure queues are empty before we begin
 	tcflush (fd, TCIOFLUSH);
 
@@ -191,37 +214,64 @@ void RFIDdriver::sendMessage(u8 command, u8* data, int length) {
 	MsgObj message(length, command, data);
 	u8 bytes[256];
 	message.getBytesToSend(bytes);
-	//printf("\n\n");
-	//for (int i = 0; i < message.getLength(); i++)
-	//	printf("%x ", bytes[i]);
-	//printf("\n\n");
+	if (debug) {
+		printf("\n\nSending hex: ");
+		for (int i = 0; i < message.getLength(); i++)
+			printf("%x ", bytes[i]);
+		printf("\n\n");
+	}
 	write(fd, bytes, message.getLength());
+	tcflush(fd, TCIOFLUSH);
 }
 
-int RFIDdriver::readMessage(u8* data, int length) {
-	memset(data, 0x00, length);
-	int n = read(fd, data, length);
+//[SOH 1 byte] [length 1 byte] [op code 1 byte] [status 2 bytes] [data n bytes] [CRC 2 bytes]
+int RFIDdriver::readMessage(u8* data, int length, int timeout) {
+	memset(data, 0x00, length);//Clear the previous contents from the buffer
+	int minlength = 7;
+	int n = 0;
+	time_t start = time(NULL);
+	while (n < minlength) {
+		int elapsed = (int)(time(NULL) - start);
+		int k = read(fd, &data[n], length);
+		n += k;
+		if (k == 0 && elapsed >= timeout) break;//At the point when no data is left, stop reading it
+		//(this seems to work, and it's faster than waiting for the timeout timer
+		//which I commented out above)
+		if (n >= 2) {
+			minlength = 7 + data[1];//Add in the length of the data;
+		}
+	}
 	if (n == 0) 
 		fprintf(stderr, "Error: Serial communication timed out\n");
+	else if (debug) {
+		printf("\n\nReceived hex length %i (supposed to be %i): ", n, minlength);
+		for (int i = 0; i < n; i++)
+			printf("%x ", data[i]);
+		printf("\n\n");
+	}
+	//validateCRC(data, n);
 	return n;
 }
 
-bool validateCRC(u8* buf, int n) {
-	//TODO: Validate CRC on commands that come back from the reader
-}
 
 //Return true if the message has the 0x0000 code for completed successfully
 bool checkSuccess(u8* buf, int n) {
-	if (n < 7) return false;
+	if (n < 7) {
+		return false;
+	}
 	MsgObj received(buf, n);
-	return (received.status == 0x0000);
+	bool toReturn = (received.status == 0x0000);
+	if (!toReturn) {
+		fprintf(stderr, "Warning: Did not receive 0x0000 acknowledge code; got %x instead\n", received.status);
+	}
+	return toReturn;
 }
 
 //Return true if successful
 bool RFIDdriver::checkBootFirmwareVersion() {
 	u8 buf[256];
 	sendMessage(0x03, NULL, 0);//"Get bootloader firmware version number"
-	int n = readMessage(buf, 256);
+	int n = readMessage(buf, 256, 0);
 	return checkSuccess(buf, n);
 }
 
@@ -229,20 +279,20 @@ bool RFIDdriver::bootFirmware() {
 	u8 buf[256];
 	
         //Check if BootLoader is running by issuing "Get BootLoader/Firmware Version"        
-        if (!checkBootFirmwareVersion()) 
-        	return false;
+        //if (!checkBootFirmwareVersion()) 
+        //	return false;
         
         //Boot into Firmware
         printf("\tBooting into firmware\n");
         sendMessage(0x04, NULL, 0);
 	
-	int n = readMessage(buf, 256);
+	int n = readMessage(buf, 256, 0);
 	if (n < 7) return false;
 	
 	MsgObj response(buf, 256);
 	
 	if (response.status == 0x0000)
-		return true;//New boot was successfull
+		return true;//New boot was successful
 
 	// Non-Zero Response will be received if the reader has already booted into firmware
 	//   This occurs when you've already powered-up & previously configured the reader.  
@@ -257,7 +307,7 @@ bool RFIDdriver::ChangeAntennaPorts(u8 TXport, u8 RXport) {
 	u8 buf[256];
 	u8 data[2] = {TXport, RXport};
 	sendMessage(0x91, data, 2);
-	int n = readMessage(buf, 256);
+	int n = readMessage(buf, 256, 0);
 	return checkSuccess(buf, n);
 	
 }
@@ -269,7 +319,7 @@ bool RFIDdriver::ChangeTXReadPower(u16 r) {
         u8 lo = (readPwr & 0x00FF);
         u8 data[2] = {hi, lo};
         sendMessage(0x92, data, 2);
-        int n = readMessage(buf, 256);
+        int n = readMessage(buf, 256, 0);
         return checkSuccess(buf, n);
 }
 
@@ -278,7 +328,7 @@ bool RFIDdriver::setProtocol() {
         u8 buf[256];
         u8 data[2] = {0x00, 0x05};
         sendMessage(0x93, data, 2);
-        int n = readMessage(buf, 256);
+        int n = readMessage(buf, 256, 0);
         return checkSuccess(buf, n);
 }
 
@@ -287,65 +337,90 @@ bool RFIDdriver::setRegion() {
         u8 buf[256];
         u8 data[1] = {0x01};
         sendMessage(0x97, data, 1);
-        int n = readMessage(buf, 256);
+        int n = readMessage(buf, 256, 0);
         return checkSuccess(buf, n);
 }
 
 void RFIDdriver::QueryEnvironment(u16 timeout) {
-		u8 buf[256];
+	u8 buf[256];
 
         //Send "Read Tag ID Multiple" Command (opCode 22)
-        u8 timeoutHi = timeout & 0xFFFF) >> 8;
+        u8 timeoutHi = (timeout & 0xFFFF) >> 8;
         u8 timeoutLo = timeout & 0x00FF;
         
-        u8 readmultipledata[4] = {0x00, 0x01, timeoutHi, timeoutLo};
+        u8 readmultipledata[4] = {0x00, 0x00, timeoutHi, timeoutLo};
         sendMessage(0x22, readmultipledata, 4);
-  		int n = readMessage(buf, 256);
-  		if (n < 7) {
-	  		fprintf(stderr, "ERROR reading tags\n");	
-	  		return;
-  		}
-  		MsgObj received(buf, n);
-  		if (received.status == 0x0400) {
-	  		//No tags were found
-	  		printf("No tags found\n");
-	  		return;
-  		}
-  		else if (received.status != 0x0000) {
-	  		return;	
-  		}
-  		//At least one tag was seen
-        u8 numTags = received.data[0];
-		printf("%i tags seen\n", numTags);
-		fprintf(logfile, "%i ", numTags);
-		
-		while (numTags > 0) {
-			
-			numTags--;
+
+	usleep(timeout * 2);
+	int n = readMessage(buf, 256, 0);
+	if (n < 7) {
+  		fprintf(stderr, "ERROR sending \"Read Tag ID Multiple\"; n = %i\n", n);	
+  		return;
+	}
+	MsgObj received(buf, n);
+	if (received.status == 0x0400) {
+  		//No tags were found
+  		printf("No tags found\n");
+  		//fprintf(logfile, "%i: No tags found\n", (int)time(NULL));
+  		return;
+	}
+	
+	//At least one tag was seen
+	sendMessage(0x29, NULL, 0);
+	n = readMessage(buf, 256, 0);
+	if (n < 11) {
+		fprintf(stderr, "ERROR sending Get Tag Buffer command\n");
+		return;
+	}
+	
+	MsgObj* tagread = new MsgObj(buf, n);
+	u16 ReadIndex = (tagread->data[0] << 8) & 0xFF00 | (tagread->data[1] & 0x00FF);
+	u16 WriteIndex = (tagread->data[2] << 8) & 0xFF00 | (tagread->data[3] & 0x00FF);
+	delete tagread;
+	
+	int numTags = WriteIndex - ReadIndex;
+	
+	fprintf(logfile, "%i %i ", (int)time(NULL), numTags);
+	
+	while (numTags > 0) {
+		u8 getbufferdata[3] = {0x00, 0x02, 0x00};
+		sendMessage(0x29, getbufferdata, 3);
+		n = readMessage(buf, 256, 0);
+		if (n < 7) {
+			fprintf(stderr, "ERROR: Reading buffer failed\n");
+			break;
 		}
+		tagread = new MsgObj(buf, n);
+		if (tagread->dataLen < 4) {
+			fprintf(stderr, "ERROR: Reading buffer failed\n");
+			break;		
+		}
+		u8 num = tagread->data[3];
+		for (u8 i = 0; i < num; i++) {
+			int rssi = tagread->data[4 + i*19];
+			//Print the tag id as a hex string
+			for (int j = 4 + i*19 + 5; j < 4 + i*19 + 5 + 12; j++) {
+				printf("%.2x", tagread->data[j]);
+				fprintf(logfile, "%.2x", tagread->data[j]);
+			}
+			//Then print the tag strength
+			printf(" %i ", rssi);
+			fprintf(logfile, " %i ", rssi);
+		}
+		printf("\n");
+		fprintf(logfile, "\n");
+		delete tagread;
+		numTags -= num;
+	}
+	
+	
+	//Reset and clear the Tag ID Buffer for next Read Tag ID Multiple
+	sendMessage(0x2A, NULL, 0);
+	n = readMessage(buf, 256, 0);
+	if (!checkSuccess(buf, n)) {
+		fprintf(stderr, "ERROR clearing buffer for next tag read");
+	}
 }
-
-        /*# Get Tag Buffer
-
-        results = []   # stored as (ID, RSSI)
-        while numTags > 0:
-            self.TransmitCommand('\x03\x29\x00\x02\x00')
-            (start, length, command, status, data, CRC) = self.ReceiveResponse()
-
-            tagsRetrieved = ord(data[3])
-            for i in xrange(tagsRetrieved):
-                rssi = ord(data[4 + i*19])
-                tagID = data[4 + i*19 + 5 : 4 + i*19 + 5 + 12]
-                results.append( (tagID, rssi) )
-            
-            numTags = numTags - tagsRetrieved
-            
-        # Reset/Clear the Tag ID Buffer for next Read Tag ID Multiple
-        self.TransmitCommand('\x00\x2A')
-        self.ReceiveResponse()
-            
-        return results*/
-*/
 
 ////////////////////////////////////////////////////////////////////////////////
 // Set up the device.  Return 0 if things go well, and -1 otherwise.
@@ -353,9 +428,11 @@ int RFIDdriver::Setup() {
 	printf("RFID driver initialising\n\n");
 	printf("\tAttempting 230400 bps...\n");
 	Connect(230400);
+	u8 buf[256];
+	readMessage(buf, 256, 0);//Read out any junk that's left
 
 	if (!checkBootFirmwareVersion())  {
-		fprintf(stderr, "\tFailed @ 230400 bps\nAttempting 9600 bps...");
+		fprintf(stderr, "\tFailed @ 230400 bps\nAttempting 9600 bps...\n");
 		Disconnect();
 		Connect(9600);
 		
@@ -371,6 +448,8 @@ int RFIDdriver::Setup() {
 			printf("\tSwitching to 230400 bps\n");
 			u8 newbaudrate[4] = {0x00, 0x03, 0x84, 0x00};
 			sendMessage(0x06, newbaudrate, 4);
+			int n = readMessage(buf, 256, 0);
+			checkSuccess(buf, n);
 			Disconnect();
 			printf("\tAttempting to reconnect @ 230400 bps\n");
 			Connect(230400);
@@ -452,7 +531,7 @@ void RFIDdriver::Main() {
 		// Process MsgObjs
 		ProcessMessages(); 
 		
-		QueryEnvironment();
+		QueryEnvironment(50);
 		
     }
 }

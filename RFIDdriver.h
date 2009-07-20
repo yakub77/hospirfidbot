@@ -6,6 +6,7 @@
 
 #include <libplayercore/playercore.h>
 #include <termios.h>
+#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -58,7 +59,7 @@ private:
     	int Connect(int connect_speed);
     	void Disconnect();
     	void sendMessage(u8 command, u8* data, int length);
-    	int readMessage(u8* data, int length);
+    	int readMessage(u8* data, int length, int timeout);
     	bool checkBootFirmwareVersion();
     	bool bootFirmware();
     	bool ChangeAntennaPorts(u8 TXport, u8 RXport);
