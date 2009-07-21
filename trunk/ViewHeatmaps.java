@@ -6,7 +6,7 @@ import java.applet.*;
 import java.io.*;
 import java.util.*;
 
-public class ViewHeatmaps extends JFrame implements ListSelectionListener {
+public class ViewHeatmaps extends JFrame implements ListSelectionListener, WindowListener {
 	class RFIDTableEntry {
 		/*fprintf(fp, "%i %s %i %lf %lf\n", iter->first, rfidlog->reverseTags[iter->first].data(), 
 			iter->second.strength, iter->second.x, iter->second.y);*/
@@ -114,12 +114,13 @@ public class ViewHeatmaps extends JFrame implements ListSelectionListener {
 			table.addRowSelectionInterval(0, 0);
 		}
 		table.getSelectionModel().addListSelectionListener(this);
-		scrollPane.setBounds(0, 0, 400, 100);
+		scrollPane.setBounds(0, 0, mapImage.getWidth(this), 100);
 		content.add(scrollPane);
 		canvas = new Display();
 		canvas.setBounds(0, 100, mapImage.getWidth(this), mapImage.getHeight(this) + 100);
 		content.add(canvas);
 		setSize(mapImage.getWidth(this), mapImage.getHeight(this) + 100);
+		addWindowListener(this);
 		show();
 	}
 	
@@ -209,6 +210,16 @@ public class ViewHeatmaps extends JFrame implements ListSelectionListener {
 			repaint();
 		}
 	}
+	
+	public void windowOpened(java.awt.event.WindowEvent evt){}
+	public void windowClosing(java.awt.event.WindowEvent evt){
+		System.exit(0);
+	}
+	public void windowClosed(java.awt.event.WindowEvent evt){}
+	public void windowActivated(java.awt.event.WindowEvent evt){}
+	public void windowDeactivated(java.awt.event.WindowEvent evt){}
+	public void windowIconified(java.awt.event.WindowEvent evt){}
+	public void windowDeiconified(java.awt.event.WindowEvent evt){}
 	
 	public static void main(String[] args) {
 		if (args.length < 4) {
