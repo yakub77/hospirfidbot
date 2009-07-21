@@ -173,28 +173,46 @@ void PGMImage::Blur(int w) {
 	}
 }
 
+
+//Quantize a generated map image to black and white so that the AMCL driver can
+//understand it better
 void PGMImage::autoQuantize() {
+	int histogram[256];
+	memset(histogram, 0, 256 * sizeof(int));
 	double avg;
-	int min;
 	int total = 0;
-	//Find minimum pixel value and discount it from average
+	int max = 0, maxlevel = 0;
 	for (int i = 0; i < width; i++) {
 		for (int j = 0; j < height; j++) {
-			int pixel = getPixel(i, j);
-			if (pixel < min) min = pixel;
+			histogram[getPixel(i, j)]++;
 		}
 	}
-	for (int i = 0; i < width; i++) {
-		for (int j = 0; j < height; j++) {
-			int pixel = getPixel(i, j);
-			if (pixel > min) {
-				avg += pixel; total++;
-			}
+	for (int i = 0; i < 256; i++) {
+		if (histogram[i] > max) {
+			maxlevel = i;
+			max = histogram[i];
 		}
 	}
-	avg /= (double)total;
-	cout << avg << endl;
-	Quantize((int)avg);
+	//Now take an average of the open pixels
+        for (int i = 0; i < width; i++) {
+                for (int j = 0; j < height; j++) {
+                        int pixel = getPixel(i, j);
+                        if (pixel != maxlevel) {
+                                avg += pixel; total++;
+                        }
+                }
+        }
+        avg /= (double)total;
+        cout << avg << endl;
+        for (int i = 0; i < width; i++) {
+                for (int j = 0; j < height; j++) {
+                        int pixel = getPixel(i, j);
+                        if (pixel > avg) {
+                        	setPixel(i, j, 255);
+                        }
+                }
+        }
+
 }
 
 //Test client for this class
