@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
 	while (!feof(fin)) {
 		header.readHeader(fin);
 		if (header.valid) {
-			sprintf(filename, "%s%i.jpg", argv[2], counter);
+			sprintf(filename, "capture/%s%i.jpg", argv[2], counter);
 			FILE* fout = fopen(filename, "w");
 			writeJPEG(fin, fout);
 			counter++;
