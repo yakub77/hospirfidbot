@@ -42,6 +42,8 @@ public class ViewHeatmaps extends JFrame implements ListSelectionListener {
 	
 	
 	public void loadHeatmap(String id) {
+		Graphics mapGraphics = mapImage.getGraphics();
+		mapGraphics.setColor(Color.BLUE);
 		try {
 			String filename = fileprefix + id + ".pgm";
 			PGMImage pgmimage = new PGMImage(filename);
@@ -52,7 +54,8 @@ public class ViewHeatmaps extends JFrame implements ListSelectionListener {
 			int y = pgmimage.height / 2 - (int)(entry.y / mapRes);
 			Graphics g = image.getGraphics();
 			g.setColor(Color.RED);
-			g.fillOval(x - 5, y - 5, 10, 10);
+			g.fillOval(x - 3, y - 3, 6, 6);
+			mapGraphics.fillOval(x - 2, y - 2, 4, 4);
 			heatmaps.put(id, image);
 			//System.out.println("Finished loading " + filename + "...");
 		}

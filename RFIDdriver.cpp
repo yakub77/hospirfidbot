@@ -15,6 +15,8 @@ static bool debug = false;//Print out the hex data for sending / receiving comma
 static bool printlive = false;//Controls whether all of the tag information is printed to stdout 
 //in addition to the logfile
 
+static int eps = 20;//Extra time to wait during timeout
+
 //This function updates a running CRC value
 void CRC_calcCrc8(u16* crc_calc, u8 ch) {
 	u8 i, v, xor_flag;
@@ -360,11 +362,12 @@ void RFIDdriver::QueryEnvironment(u16 timeout) {
 	gettimeofday(&tim, NULL);
 	double readtime = tim.tv_sec + (tim.tv_usec / 1000000.0);
 	
-	usleep(timeout * 2);//Sleep to give the reader enough time to execute this command and 
+	usleep(timeout + eps);//Sleep to give the reader enough time to execute this command and 
 	//send the data back
 	int n = readMessage(buf, 256, 0);
 	if (n < 7) {
   		fprintf(stderr, "ERROR sending \"Read Tag ID Multiple\"; n = %i\n", n);	
+  		tcflush(fd, TCIOFLUSH);
   		return;
 	}
 	MsgObj received(buf, n);
@@ -540,7 +543,7 @@ void RFIDdriver::Main() {
 		// Process MsgObjs
 		ProcessMessages(); 
 		
-		QueryEnvironment(50);
+		QueryEnvironment(querytimeout);
 		
     }
 }
