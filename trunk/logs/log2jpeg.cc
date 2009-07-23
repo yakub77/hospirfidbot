@@ -87,6 +87,7 @@ void writeJPEG(FILE* fin, FILE* fout) {
 }
 
 int main(int argc, char** argv) {
+	printf("NOTE: There MUST be a directory called \"capture\"\n");
 	int counter = 0;
 	char filename[128];
 	char command[256];

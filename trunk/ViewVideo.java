@@ -8,12 +8,7 @@ import java.applet.*;
 import java.io.*;
 import java.util.*;
 import java.net.URL;
-
-/*Steps:
-1: Read in log files for the odometry data and for the image times
-2: 
-
-*/
+import javax.imageio.ImageIO;  
 
 public class ViewVideo extends JFrame implements WindowListener {
 	public static double FPS = 10.0;//Frames per second
@@ -21,6 +16,7 @@ public class ViewVideo extends JFrame implements WindowListener {
 	public VideoDisplay videoDisplay;
 	public MapDisplay mapDisplay;
 	public double[] odomtimes;
+	int size = 700;
 	
 	public static int binarySearch(double[] a, double target, int begin, int end) {
 		int mid = (begin + end) / 2;
@@ -34,7 +30,7 @@ public class ViewVideo extends JFrame implements WindowListener {
 		}
 	}
 	
-	Timer t = new Timer((int)(1000.0 / FPS), new ActionListener() {
+	public Timer t = new Timer((int)(1000.0 / FPS), new ActionListener() {
 		public void actionPerformed(ActionEvent e) {
 			videoDisplay.nextFrame();
 			Double time = new Double(videoDisplay.currTime);
@@ -69,17 +65,19 @@ public class ViewVideo extends JFrame implements WindowListener {
 	
 	public ViewVideo(String mapfile, double gridscale, String odomlogfile, String cameralogfile, String cameraprefix) {
 		super("Video / Map Localization Viewer");
+		addWindowListener(this);
 		Container content = getContentPane();
 		content.setLayout(null);
 		
 		videoDisplay = new VideoDisplay(cameralogfile, cameraprefix);
-		videoDisplay.setBounds(0, 0, 400, 400);
+		videoDisplay.setBounds(0, 0, size, size);
 		content.add(videoDisplay);
 		mapDisplay = new MapDisplay(mapfile, odomlogfile, gridscale);
-		mapDisplay.setBounds(400, 0, 800, 400);
+		mapDisplay.setBounds(size, 0, 2*size, size);
 		content.add(mapDisplay);
-		setSize(800, 400);
+		setSize(2*size, size + 10);
 		show();
+		t.start();
 	}
 	
 	
@@ -88,7 +86,7 @@ public class ViewVideo extends JFrame implements WindowListener {
 		public double[] times;
 		public double currTime;//The current time in the logfile
 		public int index;
-		public Image currFrame;
+		public BufferedImage currFrame;
 		
 		public VideoDisplay(String logfile, String cameraprefix) {
 			ArrayList<String> a = new ArrayList<String>();
@@ -123,13 +121,27 @@ public class ViewVideo extends JFrame implements WindowListener {
 			index = index % times.length;
 			currTime = times[index];
 			String filename = prefix + index + ".jpg";
-			URL url = this.getClass().getResource(filename);
-			currFrame = Toolkit.getDefaultToolkit().getImage(url);
+			StringBuilder stringBuilder = new StringBuilder();
+			Formatter formatter = new Formatter(stringBuilder);
+			formatter.format("Video / Map Localization Viewer (Time: %.3f sec)", currTime - times[0]);
+			setTitle(stringBuilder.toString());
+			 
+			try {    
+				URL url = getClass().getResource(filename);  
+				currFrame = ImageIO.read(url);  
+			}  
+			catch (Exception e) {
+				e.printStackTrace();
+			}
+			if(currFrame == null) {  
+				currFrame = new BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB);  
+				System.err.println("unable to load image, returning default");  
+			}  
 			repaint();
 		}
 		
 		public void paintComponent(Graphics g) {
-			g.drawImage(currFrame, 0, 0, 400, 400, null);
+			g.drawImage(currFrame, 0, 0, size, size, null);
 		}
 	}
 	
@@ -138,11 +150,17 @@ public class ViewVideo extends JFrame implements WindowListener {
 		public Odometry(){}
 	}
 	
-	class MapDisplay extends JPanel {
+	class MapDisplay extends JPanel implements MouseListener, MouseMotionListener, MouseWheelListener {
 		public TreeMap<Double, Odometry> odomReadings;
 		public BufferedImage mapImage;
 		public double scale;
 		public Odometry currentOdom = null;
+		
+		
+		private int zoomX, zoomY;//How far from the center of the image the viewer is centered (in pixels)
+		private int zoomFactor;//How many times magnified
+		private int lastX, lastY;//Helps with scrolling
+		private int currentX, currentY;//Used to help draw location in meters by the mouse pointer
 	
 		public MapDisplay(String mapfile, String logfile, double scale) {
 			PGMImage image = null;
@@ -186,27 +204,79 @@ public class ViewVideo extends JFrame implements WindowListener {
                			odomtimes[index] = iter.next();
                			index++;
                		}
+       		
+			addMouseListener(this);
+			addMouseMotionListener(this);
+			addMouseWheelListener(this);
+			zoomFactor = 1;
+			zoomX = 0;
+			zoomY = 0;
+
 		}
 		
 		public void paintComponent(Graphics g) {
+
+			if (mapImage == null || currentOdom == null)
+				return;
 			int width = mapImage.getWidth();
 			int height = mapImage.getHeight();
-			g.drawImage(mapImage, 0, 0, 400, 400, null);
+			Image image = createImage(width, height);
+			Graphics ig = image.getGraphics();
+			ig.drawImage(mapImage, 0, 0, width, height, null);
+			ig.setColor(Color.RED);
+			//Draw the robot with an arrow coming out of it in the proper direction
 			int x = mapImage.getWidth() / 2 + (int)(currentOdom.x / scale);
 			int y = mapImage.getHeight() / 2 - (int)(currentOdom.y / scale);
-			x = (int)((double)x * 400.0 / (double)width);
-			y = (int)((double)y * 400.0 / (double)height);
-			g.setColor(Color.RED);
-			g.fillOval(x - 2, y - 2, 4, 4);
-			int x2 = x + (int)(6.0 * Math.cos(currentOdom.theta));
-			int y2 = y + (int)(6.0 * Math.sin(currentOdom.theta));
-			g.drawLine(x, y, x2, y2);
+			ig.fillOval(x - 4, y - 4, 8, 8);
+			int x2 = x + (int)(16.0 * Math.cos(currentOdom.theta));
+			int y2 = y - (int)(16.0 * Math.sin(currentOdom.theta));
+			ig.drawLine(x, y, x2, y2);
+
+			//Now draw that buffer at the appropriate position based on scrolling
+			int drawX = width/2 - (width/2)*zoomFactor - zoomX * zoomFactor;
+			int drawY = height/2 - (height/2)*zoomFactor - zoomY * zoomFactor;
+			
+			g.drawImage(image, drawX, drawY, width * zoomFactor, height * zoomFactor, this);
+		}
+		
+		
+		public void mouseEntered(MouseEvent evt) {}
+		public void mouseExited(MouseEvent evt) {}
+		public void mousePressed(MouseEvent evt) {
+			lastX = evt.getX();
+			lastY = evt.getY();
+			repaint();
+		}
+		public void mouseReleased(MouseEvent evt) {
+			repaint();
+		}
+		public void mouseClicked(MouseEvent evt) {}
+		public void mouseMoved(MouseEvent evt){
+			currentX = evt.getX();
+			currentY = evt.getY();
+			repaint();
+		}
+		public void mouseDragged(MouseEvent evt){
+			int x = evt.getX(), y = evt.getY();
+			int dx = x - lastX;
+			int dy = y - lastY;
+			zoomX -= dx;
+			zoomY -= dy;
+			lastX = x;
+			lastY = y;
+			repaint();
+		}
+		public void mouseWheelMoved(MouseWheelEvent evt) {
+			zoomFactor -= evt.getWheelRotation();
+			if (zoomFactor < 1) zoomFactor = 1;
+			repaint();
 		}
 	}
 	
 	
 	public void windowOpened(java.awt.event.WindowEvent evt){}
 	public void windowClosing(java.awt.event.WindowEvent evt){
+		t.stop();
 		System.exit(0);
 	}
 	public void windowClosed(java.awt.event.WindowEvent evt){}
@@ -217,10 +287,11 @@ public class ViewVideo extends JFrame implements WindowListener {
 	
 	
 	public static void main(String[] args) {
-		if (args.length < 5) {
-			System.err.println("Usage: VideoDisplay <map file> <map grid scale (meters)> <localized odometry logfile> <camera logfile> <camera directory/prefix>\n");
+		if (args.length < 6) {
+			System.err.println("Usage: VideoDisplay <map file> <map grid scale (meters)> <localized odometry logfile> <camera logfile> <camera directory/prefix> <framerate>\n");
 			return;
 		}
+		FPS = Double.parseDouble(args[5]);
 		new ViewVideo(args[0], Double.parseDouble(args[1]), args[2], args[3], args[4]);
 	}
 }
