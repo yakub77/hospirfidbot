@@ -362,9 +362,9 @@ void RFIDdriver::QueryEnvironment(u16 timeout) {
 	gettimeofday(&tim, NULL);
 	double readtime = tim.tv_sec + (tim.tv_usec / 1000000.0);
 	
-	usleep(timeout * 2);//Sleep to give the reader enough time to execute this command and 
+	usleep(timeout + eps);//Sleep to give the reader enough time to execute this command and 
 	//send the data back
-	int n = readMessage(buf, 256, 0);
+	int n = readMessage(buf, 256, 2);
 	if (n < 7) {
   		fprintf(stderr, "ERROR sending \"Read Tag ID Multiple\"; n = %i\n", n);	
   		tcflush(fd, TCIOFLUSH);
@@ -372,6 +372,9 @@ void RFIDdriver::QueryEnvironment(u16 timeout) {
 	}
 	MsgObj received(buf, n);
 	if (received.status == 0x0400) {
+		if (printlive) {
+			printf("No tags found\n");
+		}
   		//No tags were found
   		return;
 	}
