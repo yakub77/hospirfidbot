@@ -192,7 +192,7 @@ Point OccupancyGrid::GetRightBiasCentroid(double centerX) {
 int main(int argc, char *argv[]) {
 	parse_args(argc, argv);
 	bool INTENSITY = false;
-	double cruising_speed = 0.5;
+	double cruising_speed = 0.25;
 	double critical_min_dist = 0.5;
 	OccupancyGrid grid(0.1, 4.0, 2.0);
 	bool rightbias = false;
