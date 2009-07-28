@@ -1,3 +1,9 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose: To create a class that can read in binary data from a simple PGM
+ *grayscale image and store the intensity values (0-255) in an array of bytes
+ *where it can be easily manipulated (also provide some image processing functions)*/
+
 #ifndef PGM_H
 #define PGM_H
 
@@ -34,6 +40,7 @@ public:
 	void Quantize(BYTE cutoff);
 	void Blur(int w);
 	PGMImage getEdges();
+	//The most important function; used to 
 	void autoQuantize();
 };
 

@@ -1,3 +1,10 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose: To create a library in Java that can load PGM Images (the Java port of
+ *pgm.cpp and pgm.h).  I also added the capability to generate special image buffers
+ *for the map with the axes pre-drawn, or a buffer for heatmaps that has an alpha channel
+ *so that the heatmaps can be transparently deposited on top of the occupancy grid*/
+
 import java.io.*;
 import java.util.*;
 import java.awt.*;
@@ -9,6 +16,8 @@ class PGMImage {
 	public String filename;
 	public static Color transparent = new Color(0, true);
 	
+	//Translate the byte stream from the PGM image file into 
+	//an array of greyscale values for this object
 	//P5 Width Height Max <data...>
 	public void interpretBytes(byte[] bytes) throws Exception {
 		String str = new String(bytes);
@@ -90,6 +99,7 @@ class PGMImage {
 		return new Color(rgb);
 	}
 	
+	//This is used primarily to return 
 	public BufferedImage getBufferedImage() {
 		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 		Graphics2D g = image.createGraphics();
@@ -101,13 +111,17 @@ class PGMImage {
 				g.fillRect(i, j, 1, 1);
 			}
 		}
-		//Now draw the axes
+		//Now draw the X and Y axes of the map
 		g.setColor(Color.BLACK);
 		g.drawLine(width/2, 0, width/2, height);
 		g.drawLine(0, height/2, width, height/2);
 		return image;
 	}
 	
+	//Return a heatmap with an alpha channel.  Map the "grayscale" (tag reading intensity) values
+	//to different brightnesses of orange, based on the functions above that convert the HSL model
+	//to the RGB model.  Make the heatmap transparent when the tag was not seen, so that it can
+	//be drawn over the occupancy grid.
 	public BufferedImage getBufferedHeatmap() {
 		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 		Graphics2D g = image.createGraphics();

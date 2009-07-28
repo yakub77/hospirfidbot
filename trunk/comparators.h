@@ -1,3 +1,7 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose: To provide some comparators to be used with STL maps*/
+
 #ifndef COMPARATORS_H
 #define COMPARATORS_H
 

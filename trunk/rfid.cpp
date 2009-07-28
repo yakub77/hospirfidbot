@@ -1,7 +1,15 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose: To create an object that stores all of the information from an
+ *RFID tag log (in the format that Travis Deyle and I use) in an orderly fashion.
+ *Create functions that can find the nearest entry in the table to a given system
+ *epoch time*/
+
 #include "rfid.h"
 
 RFIDLog::RFIDLog(){}
 
+//Format:
 //<time> <#tags> <string hex id> <strength 1> ..... 
 RFIDLog::RFIDLog(const char* filename) {
 	FILE* fp = fopen(filename, "r");

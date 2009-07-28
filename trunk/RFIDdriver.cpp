@@ -1,4 +1,8 @@
-
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose:  To create a driver in C++ (that's wrapped into the Player infrastructure)
+ *that can communicate with the RFID reader we're using*/
+ 
 #if HAVE_CONFIG_H
   #include <config.h>
 #endif
@@ -69,6 +73,7 @@ bool validateCRC(u8* buf, int n) {
 	return equal;
 }
 
+//Construct a message object from some data that will be sent out
 MsgObj::MsgObj(u8 dL, u8 oC, u8* d) {
 	dataLen = dL;
 	opCode = oC;
@@ -77,7 +82,7 @@ MsgObj::MsgObj(u8 dL, u8 oC, u8* d) {
 	length = getLength();
 }
 
-
+//Construct a message object from a receive set of bytes
 //[header 1 byte] [data length 1 byte] [command 1 byte] [status word 2 bytes] [data M bytes] [crc 2 bytes]
 MsgObj::MsgObj(u8* bytes, int len) {
 	assert(len >= 7);
@@ -140,6 +145,9 @@ RFIDdriver::RFIDdriver(ConfigFile* cf, int section)
 	return;
 }
 
+
+//I borrowed most of the code for this function (that sets up the serial connection)
+//from "rfi341_protocol.cc" in the player drivers directory 
 int RFIDdriver::Connect (int port_speed) {
 	// Open serial port
 	fd = open (port, O_RDWR);
@@ -285,13 +293,13 @@ bool RFIDdriver::checkBootFirmwareVersion() {
 bool RFIDdriver::bootFirmware() {
 	u8 buf[256];
 	
-        //Check if BootLoader is running by issuing "Get BootLoader/Firmware Version"        
-        //if (!checkBootFirmwareVersion()) 
-        //	return false;
-        
-        //Boot into Firmware
-        printf("\tBooting into firmware\n");
-        sendMessage(0x04, NULL, 0);
+    //Check if BootLoader is running by issuing "Get BootLoader/Firmware Version"        
+    //if (!checkBootFirmwareVersion()) 
+    //	return false;
+    
+    //Boot into Firmware
+    printf("\tBooting into firmware\n");
+    sendMessage(0x04, NULL, 0);
 	
 	int n = readMessage(buf, 256, 0);
 	if (n < 7) return false;
@@ -320,47 +328,50 @@ bool RFIDdriver::ChangeAntennaPorts(u8 TXport, u8 RXport) {
 }
         
 bool RFIDdriver::ChangeTXReadPower(u16 r) {
-        u8 buf[256];
-        readPwr = r;
-        u8 hi = (readPwr & 0xFFFF) >> 8;
-        u8 lo = (readPwr & 0x00FF);
-        u8 data[2] = {hi, lo};
-        sendMessage(0x92, data, 2);
-        int n = readMessage(buf, 256, 0);
-        return checkSuccess(buf, n);
+	u8 buf[256];
+	readPwr = r;
+	u8 hi = (readPwr & 0xFFFF) >> 8;
+	u8 lo = (readPwr & 0x00FF);
+	u8 data[2] = {hi, lo};
+	sendMessage(0x92, data, 2);
+	int n = readMessage(buf, 256, 0);
+	return checkSuccess(buf, n);
 }
 
 //Set protocol to gen2
 bool RFIDdriver::setProtocol() {
-        u8 buf[256];
-        u8 data[2] = {0x00, 0x05};
-        sendMessage(0x93, data, 2);
-        int n = readMessage(buf, 256, 0);
-        return checkSuccess(buf, n);
+	u8 buf[256];
+	u8 data[2] = {0x00, 0x05};
+	sendMessage(0x93, data, 2);
+	int n = readMessage(buf, 256, 0);
+	return checkSuccess(buf, n);
 }
 
 bool RFIDdriver::setRegion() {
-        //Set Region (we're only going to deal with North America)
-        u8 buf[256];
-        u8 data[1] = {0x01};
-        sendMessage(0x97, data, 1);
-        int n = readMessage(buf, 256, 0);
-        return checkSuccess(buf, n);
+	//Set Region (we're only going to deal with North America)
+	u8 buf[256];
+	u8 data[1] = {0x01};
+	sendMessage(0x97, data, 1);
+	int n = readMessage(buf, 256, 0);
+	return checkSuccess(buf, n);
 }
 
+//Get all of the tags in the environment and log them to the logfile
 void RFIDdriver::QueryEnvironment(u16 timeout) {
 	u8 buf[256];
 
-        //Send "Read Tag ID Multiple" Command (opCode 22)
-        u8 timeoutHi = (timeout & 0xFFFF) >> 8;
-        u8 timeoutLo = timeout & 0x00FF;
-        
-        u8 readmultipledata[4] = {0x00, 0x00, timeoutHi, timeoutLo};
-        sendMessage(0x22, readmultipledata, 4);
+    //Send "Read Tag ID Multiple" Command (opCode 22)
+    u8 timeoutHi = (timeout & 0xFFFF) >> 8;
+    u8 timeoutLo = timeout & 0x00FF;
+    
+    u8 readmultipledata[4] = {0x00, 0x00, timeoutHi, timeoutLo};
+    sendMessage(0x22, readmultipledata, 4);
 	
 	timeval tim;
 	gettimeofday(&tim, NULL);
-	double readtime = tim.tv_sec + (tim.tv_usec / 1000000.0);
+	double readtime = tim.tv_sec + (tim.tv_usec / 1000000.0);//The system time
+	//this is all taking place (needed to synchronize the RFID logfile with the
+	//localized position logfile for building heatmaps)
 	
 	usleep(timeout + eps);//Sleep to give the reader enough time to execute this command and 
 	//send the data back
@@ -441,6 +452,8 @@ void RFIDdriver::QueryEnvironment(u16 timeout) {
 // Set up the device.  Return 0 if things go well, and -1 otherwise.
 int RFIDdriver::Setup() {   
 	printf("RFID driver initialising\n\n");
+	//First connect at 230400 baud first, which will work if the reader
+	//has already been initialized
 	printf("\tAttempting 230400 bps...\n");
 	Connect(230400);
 	u8 buf[256];
@@ -546,6 +559,8 @@ void RFIDdriver::Main() {
 		// Process MsgObjs
 		ProcessMessages(); 
 		
+		//Query the tags in a loop in the main thread while player is
+		//executing all of the drivers
 		QueryEnvironment(querytimeout);
 		
     }
