@@ -62,27 +62,23 @@ void PlayerHeader::Print() {
 }
 
 
-/*  From DP_SLAM README, the output format needs to be:
-LASER <number> <values>...
-<number> is the number of laser readings that were observed. This 
-should usually be 181. Those actual laser measurements are the values
-that follow, in meters. The laser readings are assumed to start at 
--90 degrees, and occur at every 1 degree up to +90 degrees, with regard
-to the robot's facing angle.*/
-void outputLaser(FILE* fin, FILE* fout) {
+
+void outputLaser(PlayerHeader header, FILE* fin, FILE* fout) {
 	//Expected values:
 	//-1.5708 +1.5708 +0.01745329 +5.6000 0181
 	double startangle, endangle, increment, minrange, maxrange;
 	unsigned int bins;
-	fscanf(fin, "%lf%lf%lf%lf%lf%u", &startangle, &endangle, &increment, &minrange, &maxrange, &bins);
-	//printf("%lf %lf %lf %lf %lf %u\n", startangle, endangle, increment, minrange, maxrange, bins);
+	fscanf(fin, "%lf%lf%lf%lf%lf%u", &minrange, &startangle, &endangle, &increment, &maxrange, &bins);
+	//printf("startangle=%lf endangle=%lf increment=%lf minrange=%lf maxrange=%lf bins=%u\n", startangle, endangle, increment, minrange, maxrange, bins);
 	if (bins != 181) {
 		fprintf(stderr, "Warning: Expected 181 bins, found %i; skipping line\n\n", bins);
 		skipLine(fin);
 		state = WAITING_LASER;
 		return;	
 	}
-	fprintf(fout, "Laser 181 ");
+	//1053653857.29 fly 6665 laser 00 1053652583.773 -1.571 +1.571 0.017453 181
+	fprintf(fout, "%.2f %u %u laser %u %.2f ", header.time, header.host, header.robot, header.index, header.time);
+	fprintf(fout, "%.3lf %.3lf %lf 181 ", startangle, endangle, increment);
 	int counter = 0;
 	char scanrange[128];
 	char intensity[128];
@@ -90,26 +86,21 @@ void outputLaser(FILE* fin, FILE* fout) {
 		fscanf(fin, "%128s", scanrange);
 		fprintf(fout, "%s ", scanrange);
 		fscanf(fin, "%128s", intensity);
-		//Don't output the intensity (DP_SLAM doesn't want it)
+		fprintf(fout, "%s ", intensity);
 		counter++;
 	}
 	fprintf(fout, "\n");
 	fflush(fout);
 }
 
-/* From DP_SLAM readme, odometry format needs to be:
-ODOMETRY <x> <y> <theta>
-The first argument denotes this as a reading from the robot's odometer. 
-<x> and <y> are the robot's current position from some arbitrary 
-starting point. These measures are in meters. <theta> is robot's 
-current facing angle, in radians.*/
-void outputOdometry(FILE* fin, FILE* fout) {
-//1245349407.171 16777343 6665 position2d 00 001 001 +00.439 -00.027 -0.101 +00.000 +00.000 +00.000 0
+void outputOdometry(PlayerHeader header, FILE* fin, FILE* fout) {
+//1245349407.171 fly 6665 position2d 00 001 001 +00.439 -00.027 -0.101 +00.000 +00.000 +00.000 0
+//1053653857.290 fly 6665 position 00 1053652583.883 +01.200 -00.910 -1.501 -0.005 +0.000 +0.000
 	float x, y, theta;
-	fprintf(fout, "Odometry ");
-	fscanf(fin, "%f%f%f", &x, &y, &theta);
-	fprintf(fout, "%f %f %f \n", x, y, theta);
-	printf("%f %f %f \n", x, y, theta);
+	float a, b, c;
+	fprintf(fout, "%.2f %u %u position %u %.2f ", header.time, header.host, header.robot, header.index, header.time);
+	fscanf(fin, "%f%f%f", &x, &y, &theta, &a, &b, &c);
+	fprintf(fout, "%.2f %.2f %.2f %.2f %.2f %.2f\n", x, y, theta, a, b, c);
 	skipLine(fin);
 	fflush(fout);
 }
@@ -125,7 +116,7 @@ int main(int argc, char** argv) {
 	struct PlayerHeader header;
 
 	if (argc != 3) {
-		fprintf(stderr, "Syntax: player2dpslam <filein> <fileout>");
+		fprintf(stderr, "Syntax: player2old <filein> <fileout>");
 		return 1;
 	}
 	fin = fopen(argv[1], "r");
@@ -144,7 +135,7 @@ int main(int argc, char** argv) {
 		if (header.valid) {
 			if (strcmp(header.interfaceName, "laser") == 0) {
 				if (state == WAITING_LASER) {
-					outputLaser(fin, fout);
+					outputLaser(header, fin, fout);
 					//skipLine(fin);
 					state = WAITING_ODOMETRY;				
 				}
@@ -153,7 +144,7 @@ int main(int argc, char** argv) {
 			}
 			else if (strcmp(header.interfaceName, "position2d") == 0) {
 				if (state == WAITING_ODOMETRY) {				
-					outputOdometry(fin, fout);
+					outputOdometry(header, fin, fout);
 					state = WAITING_LASER;
 				}
 				else
