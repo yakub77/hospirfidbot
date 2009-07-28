@@ -1,3 +1,8 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose: Header file for a class that is able to take RFID data logs and
+ *localized odometry logs and create RFID heatmaps*/
+
 #include "pgm.h"
 #include "rfid.h"
 #include <vector>
@@ -12,6 +17,7 @@
 using namespace std;
 
 //Use this to store the coordinate of the strongest RFID reading
+//in a cell
 struct Coord {
 	int strength;
 	double x, y;

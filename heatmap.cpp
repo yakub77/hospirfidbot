@@ -1,3 +1,13 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose: The program is given a PGM image map file, along with that map's resolution (in meters),
+ *a logfile of odometry readings localized to that map (with system timestamps), and
+ *a logfile of RFID tags seen (also with sytem epoch timestaps).  The program will
+ *create a heatmap of every RFID tag seen that aligns with the map by matching up the 
+ *two logfiles; that is, at every localized position, it will find all of the RFID tags that 
+ *were seen at the time that position was recorded (or the closest time to that time that exists
+ *in the RFID logfile)*/
+
 #include "heatmap.h"
 
 void skipLine(FILE* fp) {
@@ -51,7 +61,10 @@ void HeatMaps::fillHeatMaps(const char* logfileamcl) {
 		int mapX = getMapX(x);
 		int mapY = getMapY(y);
 		//printf("(%f, %f)   (%i, %i) \n", x, y, mapX, mapY);
+		//Get all of the tags that were read at the closest time to this position
 		vector<tread> tagreadings = rfidlog->getClosestReadings(time);
+		//Update the heatmaps of all of the tags seen to have a cell filled at this
+		//position
 		for (int i = 0; i < tagreadings.size(); i++) {
 			int id = tagreadings[i].id;
 			int strength = tagreadings[i].strength;
@@ -113,6 +126,8 @@ void HeatMaps::saveHeatMap(int tagid, const char* filename) {
 	heatmaps[tagid]->writeToFile(filename);
 }
 
+//Used to save the position of the strongest tag reading for each tag (more precise than
+//determining this later from the array of pixels)
 //Format: 
 //mapRes
 //<tag assigned int id> <tag hex id> <max strength at centroid> <centroid x position (meters)> <centroid y position (meters)>

@@ -1,0 +1,54 @@
+Primary Java and C Source Code Files:
+
+args.h:  A helper file taken from the Player example codebase, that parses command line arguments that specify things like robot port number, etc.
+
+comparators.h:  A helper file for some of the other files that use STL maps, has some comparators for different templates
+
+hallwaydrive.cc: A program that can navigate down a hallway using laser scans and sending commands to the motors.  The program rasterizes the laser scans into a 2D rectangular grid of occupied or unoccupied cells.  It then calculates the centroid of these cells and steers towards that.  This makes it follow the center of the hallway.
+
+heatmap.h, heatmap.cpp:  This is a library used to create RFID heatmaps.  The program is given a PGM image map file, along with that map's resolution (in meters),a logfile of odometry readings localized to that map (with system timestamps), and a logfile of RFID tags seen (also with sytem epoch timestaps).  The program will create a heatmap of every RFID tag seen that aligns with the map by matching up the two logfiles; that is, at every localized position, it will find all of the RFID tags that were seen at the time that position was recorded (or the closest time to that time that exists in the RFID logfile)
+
+logs/log2jpeg.cc: When Player logs camera data to a logfile, it puts a big long hex string of all of the JPEG data next to each timestamp.  This program goes through the logfile and converts each hex string into an array of bytes, and then writes it out to a file for each JPEG image.  In other words, it converts the logfile from the camera into an array of JPEG images in some folder, which can then be accessed by ViewVideo.java to play them back
+
+makefile: An organized file to build all of the utilities that I've created
+
+makeheatmaps.cpp: This is a program that wraps together a lot of utilities and outputs the heatmaps as greyscale images.  This program takes a PGM image occupancy grid, a localized logfile of odometry data, and an RFID logfile.
+
+pgm.h, pgm.cpp: A library I created that can load the simple PGM image greyscale format (without any comments in the header).  This is the format that the pmaptest utility logs its occupancy grids to, so I decided to keep with that format and to write the heatmap data in this format.
+
+AutoQuantize.cpp: Provides access to the function that will clean up the occupancy grid that pmaptest spits out and puts it into a format that the AMCL driver can better understand.  It calls a function in pgm.cpp that takes the average of all of the cells in the occupancy grid (excluding the background cells), and maps all of the values above that average to 255.  This makes the AMCL driver "more sure" that certain regions are unoccupied, leading to significantly better localization performance
+
+PGMImage.java: A port of the PGM library to Java (that can only read, not write, PGM images), with added helper functions for drawing the axes to the occupancy grid and adding an alpha channel to the heatmaps (so that they're transparent where the tag was not seen).  Having alpha channels and preloading an image buffer as such significantly speeds up performance (compared to drawing the images pixel by pixel each time), and it makes zooming in much easier (can rely on java's inherent image capability).
+
+rfid.h, rfid.cpp: A library that loads all of the information from an RFID tag logfile into an organized class.  It provides a function to help find the closest entry for a given time.  The format of the log file is (Travis and I both use this format):
+<unix system epoch time> <# of tags seen> <tag 1 hex id (string)> <tag 1 strength> .....
+In addition to having Hex IDs, the program also assigns each RFID tag an integer ide, based on the order in which the tags were seen; that is, the first tag seen will have integer id 0, the second one seen will have integer id 1, and so on.
+
+RFIDdriver.h, RFIDdriver.cpp: A driver in player that can communicate with the RFID readers that we're using.  I modeled this off of Travis's RFID driver in Python (M5e.py).  It first attempts to connect at 230400 baud, which will work if the RFID reader has already been initialized.  If this is not the case, it will reconnect at 9600 baud, change the baud rate to 230400, and then tell the bootloader to boot.  At this point, it's ready to query the tags by sending a "get tag multiple" command.
+
+QuickRFIDView.cpp: This is a program that, given an RFID logfile, loads it using the rfid logfile library that I made (in rfid.cpp), and simply lists out all of the unique tags seen during that run in the order that they were seen.  This is useful for checking to make sure that all of the tags that were expected to be seen during a testing run were actually picked up.
+
+player2dpslam.cpp: A program that converts a player logfile with laser and odometry data into a format acceptable by DP_SLAM, a SLAM client written by Ronald Parr and Austin Eliazar (this is an alternative to pmaptest)
+
+SimulateRFID.cpp: Before I had the actual RFID reader in place, I used this to fake RFID tag logfiles.  This allowed me to start development of the heatmap software before all of the hardware was ready
+
+speak.h, speak.cpp: Provides a command line wrapper to the Festival speech synthesis system; used with hallwaydrive so that the robot can say "please move out of the way" when someone is in the way (actually currently disabled because it was annoying)
+
+ViewHeatmaps.java: Given a map and a set of heatmaps in the PGM grayscale format, along with a file that specifies the "centroids" of each RFID tag seen, create an interactive heatmap viewer.  Have the capability to zoom in and out by scrolling and to change the point of focus by dragging the mouse.  Draw a table on top of the GUI with all of the tags listed with their assigned integer ID and hex ID, along with the position of its centroid in meters and feet.  Draw small blue dots on the occupancy grid for the centroid of each tag, and draw a larger red dot over the tag that is selected in the table.
+
+ViewVideo.java: Program takes a logfile of localized odometry data, an occupancy grid, a folder with JPEG frames from a webcam, and a file that gives timestamps for all of those frames.  It then advances through the frames in the left panel of the display.  For each frame, find the system time it was taken, find the closest system time to that time in the localized odometry logfile, and draw that pose on an occupancy grid on the panel on the right of the display
+
+
+---------------------------
+
+
+Player Configuration Files:
+
+createbrain.cfg: The main configuration file for the platform that I have set up.  It has drivers for the iRobot Create, the Hokuyo urglaser, the USB webcam, and the RFID reader.  The file creates a logfile called "rawdata.log" in the logs directory that contains all of the laser and odometry data, it creates a logfile called "camera.log" in that directory with the frames of the webcam logged, and it creates a logfile called "rfidtags.log" with all of the RFID information.  Note that there's a section in this file the downsamples the Hokuyo urglaser to be in the sicklaser formate (181 bins from -90 to 90 degrees).  This is required to use pmaptest
+
+replay.cfg: This file takes a rawdata.log with laser and odometry data and a mapfile, and writes out a file localized.log with updated odometry data using the AMCL driver to align correct the odometry data to the map.
+
+rfidtest.cfg: A configuration file for testing the RFID driver I wrote
+
+simple.cfg: A configuration file used with stage
+

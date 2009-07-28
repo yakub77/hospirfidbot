@@ -1,3 +1,8 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose: To convert a logfile from player into a format accepted by the 
+ *DP_SLAM, an occupancy grid builder created by Ronald Parr and Austin Eliazar*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

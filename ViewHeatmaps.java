@@ -1,3 +1,12 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose: Given a map and a set of heatmaps in the PGM grayscale format, along
+ *with a file that specifies the "centroids" of each RFID tag seen, create an
+ *interactive heatmap viewer.  Have the capability to zoom in and out by scrolling
+ *and to change the point of focus by dragging the mouse.  Draw a table on top
+ *of the GUI with all of the tags listed with their assigned integer ID and hex
+ *ID, along with the position of its centroid in meters and feet*/
+
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
@@ -7,6 +16,9 @@ import java.io.*;
 import java.util.*;
 
 public class ViewHeatmaps extends JFrame implements ListSelectionListener, WindowListener {
+	
+	//An object to hold all of the information about a particular RFID tag,
+	//including its integer ID, hex string ID, and position of its centroid
 	class RFIDTableEntry {
 		/*fprintf(fp, "%i %s %i %lf %lf\n", iter->first, rfidlog->reverseTags[iter->first].data(), 
 			iter->second.strength, iter->second.x, iter->second.y);*/
@@ -18,29 +30,45 @@ public class ViewHeatmaps extends JFrame implements ListSelectionListener, Windo
 			return (id + "," + hexID + "," + strength + "," + x + "," + y);
 		}
 		public Vector asVector() {
+			double ftx = (x / 0.0254) / 12.0;//Convert meters to feet
+			double fty = (y / 0.0254) / 12.0;
+			StringBuilder stringBuilder = new StringBuilder();
+			Formatter formatter = new Formatter(stringBuilder);
+			formatter.format("(%.2fft)", ftx);
 			Vector toReturn = new Vector();
 			toReturn.add("" + id);
 			toReturn.add(hexID);
 			toReturn.add("" + strength);
-			toReturn.add("" + x + "m");
-			toReturn.add("" + y + "m");
+			toReturn.add("" + x + "m    " + stringBuilder.toString());
+			stringBuilder = new StringBuilder();
+			formatter = new Formatter(stringBuilder);
+			formatter.format("(%.2fft)", fty);
+			toReturn.add("" + y + "m    " + stringBuilder.toString());
 			return toReturn;
 		}
 	}
 	
 	
-	public TreeMap<String, Image> heatmaps;
-	public TreeMap<String, RFIDTableEntry> tableEntries;
-	//Used to store the "centroid" of each heatmap
-	public Image mapImage;
-	public Display canvas;
-	public JScrollPane scrollPane;
-	public JTable table;
-	public String selected = "";
-	public double mapRes;
-	public String fileprefix;
+	public TreeMap<String, Image> heatmaps;//Associates a heatmap image with
+	//a String ID (actually an integer, but stored as a string because of Java's
+	//quirks with objects)
+	
+	public TreeMap<String, RFIDTableEntry> tableEntries;//Associates all of the
+	//information about a particular RFID tag with its integer ID stored as a string
+	//Primarily used to store the "centroid" of each heatmap
+	
+	public Image mapImage;//The occupancy grid
+	public Display canvas;//The main drawing JPanel
+	public JScrollPane scrollPane;//Used to make the table scrollable (since
+	//there could potentially be very many RFID tags)
+	public JTable table;//The actual table widget for the RFID information
+	public String selected = "";//Which is selected?
+	public double mapRes;//Meters per pixel in map
+	public String fileprefix;//What comes before the ".pgm" in 
+	//all of the heatmap PGM images?
 	
 	
+	//Load a heatmap for a tag with a particular integer ID
 	public void loadHeatmap(String id) {
 		Graphics mapGraphics = mapImage.getGraphics();
 		mapGraphics.setColor(Color.BLUE);
@@ -70,7 +98,8 @@ public class ViewHeatmaps extends JFrame implements ListSelectionListener, Windo
 		DataInputStream in = new DataInputStream(fstream);
 		Vector rowData = new Vector();
 		
-		//Read in the file with all of the table info
+		//Read in the file with all of the table info (which has been stored
+		//in a file made by "makeheatmaps.cpp")
 		mapRes = Double.parseDouble(in.readLine());		
                 while (in.available() != 0) {
                         String str = in.readLine();
@@ -124,6 +153,8 @@ public class ViewHeatmaps extends JFrame implements ListSelectionListener, Windo
 		show();
 	}
 	
+	//The table listener used to update which tag has a red dot over it on the
+	//map
 	public void valueChanged(ListSelectionEvent evt) {
 		int row = table.getSelectedRow();
 		selected = table.getValueAt(row, 0).toString();
@@ -171,11 +202,17 @@ public class ViewHeatmaps extends JFrame implements ListSelectionListener, Windo
 			int ax = zoomX + vx, ay = vy - zoomY;
 			double xloc = (double)ax * mapRes;
 			double yloc = (double)ay * mapRes;
+			double xlocft = (xloc / 0.0254) / 12.0;//Convert meters to feet
+			double ylocft = (yloc / 0.0254) / 12.0;
 			g.setColor(Color.BLUE);
 			StringBuilder stringBuilder = new StringBuilder();
 			Formatter formatter = new Formatter(stringBuilder);
-			formatter.format("(%.2f, %.2f)", xloc, yloc);
+			formatter.format("(%.2fm, %.2fm)", xloc, yloc);
 			g.drawString(stringBuilder.toString(), currentX, currentY);
+			stringBuilder = new StringBuilder();
+			formatter = new Formatter(stringBuilder);
+			formatter.format("(%.2fft, %.2fft)", xlocft, ylocft);
+			g.drawString(stringBuilder.toString(), currentX, currentY + 20);
 		}
 		
 		public void mouseEntered(MouseEvent evt) {}
@@ -195,9 +232,12 @@ public class ViewHeatmaps extends JFrame implements ListSelectionListener, Windo
 			repaint();
 		}
 		public void mouseDragged(MouseEvent evt){
+			//Used to help drag the map around
 			int x = evt.getX(), y = evt.getY();
 			int dx = x - lastX;
 			int dy = y - lastY;
+			//Change where the image is centered based on
+			//how the user dragged the mouse
 			zoomX -= dx;
 			zoomY -= dy;
 			lastX = x;
@@ -205,6 +245,7 @@ public class ViewHeatmaps extends JFrame implements ListSelectionListener, Windo
 			repaint();
 		}
 		public void mouseWheelMoved(MouseWheelEvent evt) {
+			//Zoom in or out when the user moves the scroll wheel
 			zoomFactor -= evt.getWheelRotation();
 			if (zoomFactor < 1) zoomFactor = 1;
 			repaint();

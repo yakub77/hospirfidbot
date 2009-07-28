@@ -1,3 +1,12 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose: When Player logs camera data to a logfile, it puts a big long hex 
+ *string of all of the JPEG data next to each timestamp.  This program goes 
+ *through the logfile and converts each hex string into an array of bytes, and 
+ *then writes it out to a file for each JPEG image.  In other words, it converts 
+ *the logfile from the camera into an array of JPEG images in some folder, which 
+ *can then be accessed by ViewVideo.java to play them back*/
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -55,6 +64,7 @@ void PlayerHeader::Print() {
 		printf("%lf:%s  %i x %i\n", time, interfaceName, resx, resy);
 }
 
+//Convert a string hex character into its integer value
 char getValue(char c) {
 	char toReturn = 0;
 	if (c == 'A') return (char)10;
@@ -63,11 +73,14 @@ char getValue(char c) {
 	if (c == 'D') return (char)13;
 	if (c == 'E') return (char)14;
 	if (c == 'F') return (char)15;
+	//If it wasn't one of the letter hex values, then it's
+	//a digit from 0-9
 	char str[2];
 	str[0] = c; str[1] = '\0';
 	return (char)atoi(str);
 }
 
+//Convert two hex values into a byte
 char getBinary(char c1, char c2) {
 	return (char)(16 * getValue(c1) + getValue(c2));
 }
@@ -112,7 +125,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	//Delete all of the hold string hex values in the log file since they've now all
-	//been written to jpeg files
+	//been written to jpeg files (this saves space)
 	//(this is done the dirty and nasty way by invoking system commands)
 	sprintf(command, "colrm 16 1000000 < %s > out", argv[1]);
 	system(command);

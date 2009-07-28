@@ -1,3 +1,12 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose: Program takes a logfile of localized odometry data, an occupancy grid, 
+ *a folder with JPEG frames from a webcam, and a file that gives timestamps 
+ *for all of those frames.  It then advances through the frames in the left panel of
+ *the display.  For each frame, find the system time it was taken, find the closest
+ *system time to that time in the localized odometry logfile, and draw that pose
+ *on an occupancy grid on the panel on the right of the display*/
+
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.*;
@@ -18,6 +27,9 @@ public class ViewVideo extends JFrame implements WindowListener {
 	public double[] odomtimes;
 	int size = 700;
 	
+	//Used to help find the "closest time" in the localized odometry logfile
+	//This will return the index of the time less than or equal to the target
+	//in the array a (and it runs in log(a.length) time by nature of the binary search)
 	public static int binarySearch(double[] a, double target, int begin, int end) {
 		int mid = (begin + end) / 2;
 		if (a[mid] == target || begin > end)
@@ -30,9 +42,10 @@ public class ViewVideo extends JFrame implements WindowListener {
 		}
 	}
 	
+	//This timer is used to trigger a frame refresh event to go to the next frame
 	public Timer t = new Timer((int)(1000.0 / FPS), new ActionListener() {
 		public void actionPerformed(ActionEvent e) {
-			videoDisplay.nextFrame();
+			videoDisplay.nextFrame();//Go to the next video frame
 			Double time = new Double(videoDisplay.currTime);
 			double timeval = videoDisplay.currTime;
 			//public TreeMap<Double, Odometry> odomReadings
@@ -69,9 +82,11 @@ public class ViewVideo extends JFrame implements WindowListener {
 		Container content = getContentPane();
 		content.setLayout(null);
 		
+		//Video display goes on the left
 		videoDisplay = new VideoDisplay(cameralogfile, cameraprefix);
 		videoDisplay.setBounds(0, 0, size, size);
 		content.add(videoDisplay);
+		//Map/odometry display goes on the right
 		mapDisplay = new MapDisplay(mapfile, odomlogfile, gridscale);
 		mapDisplay.setBounds(size, 0, 2*size, size);
 		content.add(mapDisplay);
@@ -80,17 +95,21 @@ public class ViewVideo extends JFrame implements WindowListener {
 		t.start();
 	}
 	
-	
 	class VideoDisplay extends JPanel {
 		public String prefix;
-		public double[] times;
+		public double[] times;//The timestamps for all frames
 		public double currTime;//The current time in the logfile
 		public int index;
 		public BufferedImage currFrame;
 		
+		//logfile stores the timestamps for all of the frames,
+		//cameraprefix says what comes before the ".jpg" in all of the
+		//frames
 		public VideoDisplay(String logfile, String cameraprefix) {
 			ArrayList<String> a = new ArrayList<String>();
 			try {
+				//Load in all of the timestamps for the frames specified
+				//in "logfile"
 				FileInputStream fstream = new FileInputStream(logfile);
 				DataInputStream in = new DataInputStream(fstream);
 				prefix = cameraprefix;
@@ -116,16 +135,20 @@ public class ViewVideo extends JFrame implements WindowListener {
                		index = 0;
 		}
 		
+		//Advance to the next frame
 		public void nextFrame() {
 			index++;
-			index = index % times.length;
+			index = index % times.length;//Take the modulus so that it loops
+			//back when it gets to the end
 			currTime = times[index];
 			String filename = prefix + index + ".jpg";
 			StringBuilder stringBuilder = new StringBuilder();
 			Formatter formatter = new Formatter(stringBuilder);
+			//Display the elapsed time from the first frame in parentheses in the title
 			formatter.format("Video / Map Localization Viewer (Time: %.3f sec)", currTime - times[0]);
 			setTitle(stringBuilder.toString());
 			 
+			//Load the image for the current frame
 			try {    
 				URL url = getClass().getResource(filename);  
 				currFrame = ImageIO.read(url);  
@@ -151,8 +174,9 @@ public class ViewVideo extends JFrame implements WindowListener {
 	}
 	
 	class MapDisplay extends JPanel implements MouseListener, MouseMotionListener, MouseWheelListener {
-		public TreeMap<Double, Odometry> odomReadings;
-		public BufferedImage mapImage;
+		public TreeMap<Double, Odometry> odomReadings;//Associate an Odometry reading
+		//with a system time
+		public BufferedImage mapImage;//The stored occupancy grid image
 		public double scale;
 		public Odometry currentOdom = null;
 		
@@ -211,7 +235,6 @@ public class ViewVideo extends JFrame implements WindowListener {
 			zoomFactor = 1;
 			zoomX = 0;
 			zoomY = 0;
-
 		}
 		
 		public void paintComponent(Graphics g) {
@@ -225,6 +248,7 @@ public class ViewVideo extends JFrame implements WindowListener {
 			ig.drawImage(mapImage, 0, 0, width, height, null);
 			ig.setColor(Color.RED);
 			//Draw the robot with an arrow coming out of it in the proper direction
+			//so that the user can tell orientation
 			int x = mapImage.getWidth() / 2 + (int)(currentOdom.x / scale);
 			int y = mapImage.getHeight() / 2 - (int)(currentOdom.y / scale);
 			ig.fillOval(x - 4, y - 4, 8, 8);

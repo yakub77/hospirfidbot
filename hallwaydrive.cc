@@ -1,3 +1,11 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose: A program that can navigate down a hallway using laser scans and 
+ *sending commands to the motors.  The program rasterizes the laser scans 
+ *into a 2D rectangular grid of occupied or unoccupied cells.  
+ *It then calculates the centroid of these cells and steers towards that.  
+ *This makes it follow the center of the hallway.*/
+
 #include <libplayerc++/playerc++.h>
 #include <iostream>
 #include <stdlib.h>
@@ -195,7 +203,7 @@ int main(int argc, char *argv[]) {
 	double cruising_speed = 0.25;
 	double critical_min_dist = 0.5;
 	OccupancyGrid grid(0.1, 4.0, 2.0);
-	bool rightbias = false;
+	bool rightbias = false;//Drive towards the right side of the hallway?
 
 	//speak("This is test speech");	
 
@@ -229,6 +237,9 @@ int main(int argc, char *argv[]) {
 			centroid = grid.GetRightBiasCentroid(centroid.x);
 		double angle = centroid.getAngle();
 
+		//Uncomment this to make the robot halt when it gets too close to
+		//something and say "please move out of the way" until the obstruction
+		//is cleared
 		/*(minvalue < critical_min_dist && fabs(minangle)) {			
 			//Something's in the way
 			pp.SetSpeed(0.0, 0.0);

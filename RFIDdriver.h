@@ -1,3 +1,8 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose:  To create a driver in C++ (that's wrapped into the Player infrastructure)
+ *that can communicate with the RFID reader we're using*/
+
 #ifndef RFIDDRIVER_H 
 #define RFIDDRIVER_H
 
@@ -22,6 +27,8 @@
 typedef unsigned char u8;
 typedef unsigned short u16;
 
+//Make a class "MsgObj" that is able to split the streams of bytes
+//into more sensible components
 ////[Header (1 byte)] [Data length (1 byte)] [Command (1 byte)] [Data* ] [CRC HI] [CRC LO]
 class MsgObj {
 public:
@@ -57,26 +64,27 @@ public:
 private:
 	// Main function for device thread.
 	virtual void Main();
-    	int Connect(int connect_speed);
-    	void Disconnect();
-    	void sendMessage(u8 command, u8* data, int length);
-    	int readMessage(u8* data, int length, int timeout);
-    	bool checkBootFirmwareVersion();
-    	bool bootFirmware();
-    	bool ChangeAntennaPorts(u8 TXport, u8 RXport);
-    	bool ChangeTXReadPower(u16 r);
-    	bool setProtocol();
-    	bool setRegion();
-    	void QueryEnvironment(u16 timeout);
+	int Connect(int connect_speed);
+	void Disconnect();
+	void sendMessage(u8 command, u8* data, int length);
+	int readMessage(u8* data, int length, int timeout);
+	bool checkBootFirmwareVersion();
+	bool bootFirmware();
+	bool ChangeAntennaPorts(u8 TXport, u8 RXport);
+	bool ChangeTXReadPower(u16 r);
+	bool setProtocol();
+	bool setRegion();
+	void QueryEnvironment(u16 timeout);
 
 	struct termios initial_options;
-	char* port;
+	char* port;//Port to connect with RFID reader
 	player_devaddr_t rfid_id;
-	int fd;
-	u16 readPwr;
-	FILE* logfile;
+	int fd;//File descriptor for serial connection
+	u16 readPwr;//set to 3000 in the main program
+	FILE* logfile;//Logfile to log RFID readings along with
+	//system time
 	int baudrate;
-	u16 querytimeout;
+	u16 querytimeout;//Timeout for reading tags
 };
 
 #endif

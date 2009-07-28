@@ -1,3 +1,8 @@
+/*Author: Chris Tralie
+ *Project: Duke REU Fellowship 2009: Robotic navigation with RFID Waypoints
+ *Purpose: Before I had the actual RFID reader in place, I used this to fake RFID 
+ * tag logfiles.  This allowed me to start development of the heatmap software*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
@@ -74,6 +79,7 @@ int main(int argc, char** argv) {
 			double dx = tags[i].x - x;
 			double dy = tags[i].y - y;
 			double rSquared = dx*dx + dy*dy;
+			//Use an inverse square model for the strength
 			double decay = 1.0 / (1 + (0.5) * rSquared);
 			if (decay > min_decay) {
 				struct FakeTag visibletag;
