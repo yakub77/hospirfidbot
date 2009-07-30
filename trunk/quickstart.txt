@@ -1,0 +1,134 @@
+NOTE: This guide assumes that you are running at the root of the code repository and that you have successfully built all of that code by typing "make"
+
+
+1) Initiate a VNC client connection to the netbook sitting on the roomba (this will require having the roomba and client computer connected to a wireless network...you know the rest).  This will also require knowing the IP address of that netbook.  At the time of this writing, the IP address is:
+
+152.3.154.168
+
+but obviously that's subject to change (especially if we're not at Duke...)
+
+Just use any vnc client with that IP address to connect to the robot, with the following password:
+1r0b0tcre@te
+
+
+
+2) Plug in all of the devices and turn the Roomba on.  Make sure the power plug (that powers the RFID reader and hokuyo) is plugged in.  Type 
+
+ls /dev/robot
+
+You should see:
+
+camera laser rfidreader roomba
+
+If they're not all there yet, wait and then try again (the hokuyo usually takes the longest to show up).  If it still isn't showing up, unplug the USB hub and plug it back in again.  Keep repeating this step until they all show up
+
+
+3)  Start Player; type
+
+player createbrain.cfg
+
+The RFID reader will initialize and give verbose output as to what it's doing.  It usually starts up quickly, but every once in a while the RFID driver hangs or takes a full minute or two to intialize
+
+4) Once the driver has finished intializing, it will begin to output all of the RFID tags it can see to the console.  This means everything else is running, too.  So at that point, open a new terminal, cd back into the root directory of the project, and type "./hallwaydrive"
+
+This starts my centroid finding program
+
+5) In yet another console, type "playerv"
+
+This brings up player's interface for controlling hardware devices.  Go to Devices->position2d:0(roomba)->Subscribe.  This will get it ready to override the hallway drive program if it makes a mistake.  If you need to override the hallway driving program at any point, go back to this window and choose Devices->position2d:0(roomba)->Command; this allows you to control the roomba with a little joystick window.  Simply uncheck that box when the hallwaydrive program is safe to take over again.
+
+6) Whenever the data collection process has finished, simply kill player.  Three log files shall have been created in the "logs" directory:
+
+rawdata.log: This holds all of the laser and odometry scans
+rfidtags.log: This holds all of the logged information from the RFID reader
+camera.log: This file holds all of the frames that were captured from the camera
+
+-------------------
+NOTE: At this point in the game, I would recommend possibly copying those logfiles to somewhere else that's running player, because it's more convenient to deal with the occupancy grid generation and heatmap viewer on a higher resolution, faster processing computer.  I always just copied them through the network onto my Linux installation on my laptop, which has PlayerStage
+
+
+
+7) Now we are ready to generate the occupancy grid from the laser and odometry scans, which are stored in rawdata.log.  To do this, cd into the logs directory and type something like:
+
+pmaptest -g --grid_width 50 --grid_height 50 --grid_scale 0.05 --laser_x 0.13 rawdata.log
+
+This -g instructs pmaptest to start in non-graphical mode
+--grid_width and --grid_height are in meters, as is --grid_scale
+
+--laser_x is the offset of the laser from the odometric center of the robot
+
+////////////////////////SIDE NOTES//////////////////////////
+If you get an "std::bad_alloc" or something like that, it means that you've run out of memory (as you probably know).  Decrease the resolution by changing the grid_scale to 0.1 or whatever else seems suitable.
+
+*****NOTE: It's possible to specify that the robot starts out in some initial pose other than (0, 0), but I never do this; for this reason, the CENTER OF MY MAP IS ALWAYS (0, 0).  This is an assumption I make in all of my heatmap generation and heatmap viewing code (I didn't think ahead that I might need to translate the map somehow), so don't specify an initial pose!  If the map doesn't fit, for now you'll just have to decrease the resolution (this is usually only an issue in really long hallways).  Sorry about that!
+////////////////////////////////////////////////////////////
+
+After this is done, two PGM greyscale images have been created; "coarse.pgm" and "fine.pgm", along with two files "coarse.out" and "fine.out."  fine.pgm is the map that we'll stick with, since it's attempted to do some touching up like loop closing.
+
+8) Now that "fine.pgm" has been generated, it needs to be possibly filtered for Player's AMCL driver to deal with it better.  To do this, go back to the root of the code repository and type
+
+./AutoQuantize
+
+This should now have created a file "map.pgm" in your logs directory
+
+9)  Now that map.pgm is there, we're ready to update and correct the odometry data to align with the map using player's AMCL driver.  To do this, we're going to need to replay the rawdata.log logfile.  Start this process by going back to the root of the code repository and typing:
+
+player replay.cfg
+
+This will go back through the entire session (using the information from rawdata.log, updating it, and writing it out to a new logfile).  Unfortunately, this process takes as long as it originally took to collect the data (so if the robot was driving around for 10 minutes, this will take 10 minutes).  Come back when it's close to done, and kill player when you see a line printed to the console that says something like
+"Reached end of logfile"
+
+Now you should see a logfile in the logs/directory called "localized.log" with just odometry data (that's now been updated with the AMCL driver)
+
+
+10) Now that this is done, everything is in place to generate the RFID heatmaps.  First, check the file makeheatmaps.cpp.  On line 13, you should see this:
+
+HeatMaps heatmaps(<mapres>, "logs/map.pgm", "logs/localized.log", "logs/rfidtags.log");
+
+make sure that <mapres> is equal to the resolution of the occupancy grid (0.05 in my example in step 7.  If it is not, change it and rebuild that program by typing "make"
+
+Once that program has been verified, it can be executed.  Type:
+./makeheatmaps
+
+This will output all of the heatmaps as pgm images in the root of the repository.  It will also output a file called "centroids.txt" that has all of the information about each tag, including its hex ID and the location of its centroid
+
+
+11) To interactively view the heatmaps, type something like:
+
+java ViewHeatmaps logs/map.pgm heatmap centroids.txt true
+
+You shouldn't have to change these parameters much, but basically logs/map.pgm is the location of the background occupancy grid, "heatmap" is the prefix of the heatmap files, "centroids.txt" is the information for each tag, and "true" tells the viewer to load all of the heatmaps into memory before the program starts (this was only ever false before when my program was still really inefficient)
+
+
+
+
+
+
+
+
+
+----------------------------------
+
+
+12) You might also want to look at the video taken on the webcam (this is a bit buggy right now because Player seems to hiccough with the camera logfiles at times....it'll just completely crap out on some line and put a random ASCII character, which segfaults my program.  If you can detect this in advance and delete the offending lines, my program will execute fine).  First, ensure that there is an EMPTY directory called "capture" within the logs directory.  Then, CD into the logs directory, and type
+
+./log2jpeg camera.log ""
+
+This program splits up everything in camera.log into separate jpeg images with no prefix ("")  in the directory capture.  
+
+13) Go back to the root and type 
+
+java ViewVideo logs/map.pgm 0.05 logs/localized.log logs/camera.log logs/capture/ 30.0
+
+
+logs/map.pgm is the location of the map
+
+0.05 is the resolution of the map in meters
+
+logs/localized.log is the logfile of localized odometry readings
+
+logs/camera.log is what's left of the camera logfile after step 12 (the timestamps of every frame created...all of the hex data for each frame was removed in step 12)
+
+logs/capture/ is the prefix for each frame
+
+30.0 is the max frames per second
