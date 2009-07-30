@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define BUFSIZE 128
 
@@ -43,8 +44,8 @@ struct PlayerHeader {
 void PlayerHeader::readHeader(FILE* fp) {
 	char buf[BUFSIZE];
 	fscanf(fp, "%128s", buf);
-	if (buf[0] == '#') {
-		// A comment is encountered, assume this is not a valid header
+	if (!(buf[0] >= '0' && buf[0] <= '9')) {
+		// A comment or something else invalid is encountered, assume this is not a valid header
 		// Skip everything in a line that's started with a comment
 		skipLine(fp);
 		valid = false;
