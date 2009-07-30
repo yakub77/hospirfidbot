@@ -71,7 +71,7 @@ After this is done, two PGM greyscale images have been created; "coarse.pgm" and
 
 This should now have created a file "map.pgm" in your logs directory
 
-9)  Now that map.pgm is there, we're ready to update and correct the odometry data to align with the map using player's AMCL driver.  To do this, we're going to need to replay the rawdata.log logfile.  Start this process by going back to the root of the code repository and typing:
+9)  Now that map.pgm is there, we're ready to update and correct the odometry data to align with the map using player's AMCL driver.  To do this, we're going to need to replay the rawdata.log logfile.  Start this process by going back to the root of the code repository.  Check the file "replay.cfg" and make sure that "resolution" under the mapfile driver matches the resolution of the occupancy grid chosen in step 7.  Then type:
 
 player replay.cfg
 
@@ -85,7 +85,7 @@ Now you should see a logfile in the logs/directory called "localized.log" with j
 
 HeatMaps heatmaps(<mapres>, "logs/map.pgm", "logs/localized.log", "logs/rfidtags.log");
 
-make sure that <mapres> is equal to the resolution of the occupancy grid (0.05 in my example in step 7.  If it is not, change it and rebuild that program by typing "make"
+make sure that <mapres> is equal to the resolution of the occupancy grid (0.05 in my example in step 7).  If it is not, change it and rebuild that program by typing "make"
 
 Once that program has been verified, it can be executed.  Type:
 ./makeheatmaps
