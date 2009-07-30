@@ -10,7 +10,7 @@
 
 int main(int argc, char** argv) {
 	//HeatMaps(double mres, const char* mapfile, const char* logfileamcl, const char* logfilerfid);
-	HeatMaps heatmaps(0.05, "logs/map.pgm", "logs/localized.log", "logs/rfidtags.log");
+	HeatMaps heatmaps(0.1, "logs/map.pgm", "logs/localized.log", "logs/rfidtags.log");
 	simap::iterator iter = heatmaps.rfidlog->tags.begin();
 	char filename[128];
 	printf("There are %i tags\n", heatmaps.rfidlog->tags.size());
